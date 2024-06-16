@@ -2,8 +2,9 @@ import os
 import json
 import pygame
 
-options_file = "options.json"
-score_file = "scores.json"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+options_file = f"{script_dir}\options.json"
+score_file = f"{script_dir}\scores.json"
 
 # Default keys for tetris
 default_keys = {
