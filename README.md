@@ -1,0 +1,1 @@
+Tetris game made with pygame. Works without any external downloads. You can upload an image file named tetris_background.jpg in the same directory and uncomment lines 13, 14 and 51 in main.py to have a background of your choosing
