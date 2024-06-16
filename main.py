@@ -5,14 +5,13 @@ import sys
 import json
 
 from button import Button
-from databases import options_file, default_keys, keys, score_file, scores
+from databases import options_file, default_keys, keys, score_file, scores, script_dir
 from config import *
 
-# Upload an image file named tetris_background.jpg in the same directory and uncomment lines 13, 14, 15 and 52 to have a background of your choosing
+# Upload an image file named tetris_background.jpg in the same directory and uncomment lines 13, 14 and 51 to have a background of your choosing
 
-# script_dir = os.path.dirname(os.path.abspath(__file__))
-# BACKGROUND_IMAGE = pygame.image.load(os.path.join("tetris", "tetris_background.jpg"))
-# BACKGROUND = pygame.transform.scale(BACKGROUND_IMAGE, (WIDTH, HEIGHT))
+BACKGROUND_IMAGE = pygame.image.load(os.path.join(script_dir, "tetris_background.jpg"))
+BACKGROUND = pygame.transform.scale(BACKGROUND_IMAGE, (WIDTH, HEIGHT))
 
 tetrominos = [I, J, L, O, S, T, Z]
 tetromino_colors = [LIGHT_BLUE, DARK_BLUE, ORANGE, YELLOW, GREEN, PURPLE, RED]
@@ -49,7 +48,7 @@ class Tetris:
      
      def draw_window(self):
           WINDOW.fill(BLACK)
-          # WINDOW.blit(BACKGROUND, (0, 0))
+          WINDOW.blit(BACKGROUND, (0, 0))
           pygame.draw.rect(WINDOW, BLACK, PLAY_SCREEN)
           pygame.draw.rect(WINDOW, BLACK, NEXT_SCREEN)
           pygame.draw.rect(WINDOW, BLACK, HOLD_SCREEN)
