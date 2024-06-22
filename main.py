@@ -783,7 +783,7 @@ class Tetris:
                fall_delay = self.get_fall_delay(self.level)
                
                # Game end
-               if self.board[0][4] or self.board[0][5] != 0:
+               if self.board[0][4] != 0 or self.board[0][5] != 0:
                     self.game_over_screen()
                
                # Tetromino fall
