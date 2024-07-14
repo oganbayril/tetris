@@ -107,14 +107,6 @@ class Tetris:
                               y_position = (HOLD_SCREEN_Y_START + HOLD_SCREEN_Y_END) / 2 + i * SQUARE
                               hold_x_positions.append(x_position)
                               hold_y_positions.append(y_position)
-          elif self.hold_tetromino == I:
-               for i, string in enumerate(self.hold_tetromino[0], start=-2):
-                    for j, tetromino_piece in enumerate(string, start=-2):
-                         if tetromino_piece == "0":
-                              x_position = (HOLD_SCREEN_X_START + HOLD_SCREEN_X_END) / 2 + (j - 1) * SQUARE
-                              y_position = (HOLD_SCREEN_Y_START + HOLD_SCREEN_Y_END) / 2 + (i + 1) * SQUARE - SQUARE / 2
-                              hold_x_positions.append(x_position)
-                              hold_y_positions.append(y_position)
           else:
                for i, string in enumerate(self.hold_tetromino[0], start=-2):
                     for j, tetromino_piece in enumerate(string, start=-2):
@@ -139,14 +131,6 @@ class Tetris:
                               y_position = (NEXT_SCREEN_Y_START + NEXT_SCREEN_Y_END) / 2 + i * SQUARE
                               next_x_positions.append(x_position)
                               next_y_positions.append(y_position)
-          elif self.next_tetromino == I:
-               for i, string in enumerate(self.next_tetromino[0], start=-2):
-                    for j, tetromino_piece in enumerate(string, start=-2):
-                         if tetromino_piece == "0":
-                              x_position = (NEXT_SCREEN_X_START + NEXT_SCREEN_X_END) / 2 + (j - 1) * SQUARE
-                              y_position = (NEXT_SCREEN_Y_START + NEXT_SCREEN_Y_END) / 2 + (i + 1) * SQUARE - SQUARE / 2
-                              next_x_positions.append(x_position)
-                              next_y_positions.append(y_position)
           else:
                for i, string in enumerate(self.next_tetromino[0], start=-2):
                     for j, tetromino_piece in enumerate(string, start=-2):
@@ -166,7 +150,7 @@ class Tetris:
                          pygame.draw.rect(WINDOW, tetromino_colors[val - 1], (PLAY_SCREEN_X_START + (x * SQUARE), PLAY_SCREEN_Y_START + (y * SQUARE), SQUARE - 1, SQUARE - 1))
           
           # Draw corresponding numbers in score screen
-          score_number = font.render(str(self.score), True, WHITE)
+          score_number = font.render(f"{self.score:,}", True, WHITE)
           level_number = font.render(str(self.level), True, WHITE)
           lines_number = font.render(str(self.lines), True, WHITE)
           
@@ -177,9 +161,6 @@ class Tetris:
           WINDOW.blit(score_number, score_number_rect)
           WINDOW.blit(level_number, level_number_rect)
           WINDOW.blit(lines_number, lines_number_rect)
-          
-          
-
      
      def draw_tetromino(self):
           global min_x, max_x, x_positions, y_positions
@@ -211,7 +192,6 @@ class Tetris:
           for x, y in zip(x_positions, y_positions):
                pygame.draw.rect(WINDOW, tetromino_colors[tetrominos.index(self.tetromino)], (x, y, SQUARE - 1, SQUARE - 1))
 
-     
      def place_tetromino(self):
           # Update game board with tetromino and assign colors
           for i, string in enumerate(self.tetromino[self.rotation], start=-2):
@@ -222,7 +202,6 @@ class Tetris:
                          grid_x = int((x_position - PLAY_SCREEN_X_START) / SQUARE)
                          grid_y = int((y_position - PLAY_SCREEN_Y_START) / SQUARE)
                          self.board[grid_y][grid_x] = tetrominos.index(self.tetromino) + 1
-          
           
      def check_collision_y(self):
           # Check bottom collision
@@ -377,12 +356,9 @@ class Tetris:
           
           pygame.display.update()
           
-
-          
      def get_fall_delay(self, level):
           # Fall speed
           return max(50, 1100 - level * 100)
-     
      
      def main_menu(self):
           global starting_level
@@ -412,7 +388,7 @@ class Tetris:
                     WINDOW.blit(initial_to_draw, initial_to_draw_rect)
                     
                     # Drawing the scores
-                    score_to_draw = font.render(str(score[1]), True, WHITE)
+                    score_to_draw = font.render(f"{score[1]:,}", True, WHITE)
                     score_to_draw_rect = pygame.Rect(high_scores_rect.right - score_to_draw.get_width() - 5, 260 + i * SQUARE, 4 * SQUARE, SQUARE)
                     WINDOW.blit(score_to_draw, score_to_draw_rect)
                
@@ -503,6 +479,7 @@ class Tetris:
                elif screen == "pause screen":
                     self.draw_window()
                     self.draw_gameloop()
+                    self.draw_tetromino()
                     
                pygame.draw.rect(WINDOW, LIGHT_GREY, PLAY_SCREEN, width=1)
                WINDOW.blit(KEYBIND_SCREEN, KEYBIND_SCREEN_RECT)
@@ -517,17 +494,16 @@ class Tetris:
                keybind_text_rect = keybind_text.get_rect(center=(KEYBIND_SCREEN_WIDTH // 2, KEYBIND_SCREEN_HEIGHT // 2 + 10))
                KEYBIND_SCREEN.blit(keybind_text, keybind_text_rect)
                
-               
                for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                          pygame.quit()
                          sys.exit()
                     elif event.type == pygame.KEYDOWN:
                          if event.key == pygame.K_ESCAPE:
-                              pass
+                              changing_key = False
+                              self.options_screen(screen)
                          else:
                               current_keys[action] = event.key
-                              changing_key = False
                          
                               # If keybind is the same as another action, that action will be left blank
                               for key, value in current_keys.items():
@@ -538,7 +514,9 @@ class Tetris:
                               json_data = json.dumps(current_keys, indent=4)
                               with open(options_file, "w") as file:
                                    file.write(json_data)
+                              
                               self.options_screen(screen)
+                              changing_key = False
                pygame.display.update()
      
      def options_screen(self, screen):
@@ -611,6 +589,7 @@ class Tetris:
                                    self.draw_window()
                                    self.draw_gameloop()
                                    self.draw_tetromino()
+                                   self.ghost_piece()
                                    self.pause_screen()
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                          waiting_for_input = False
@@ -633,7 +612,6 @@ class Tetris:
                          else:
                               waiting_for_input = True
                          
-                         
                pygame.display.update()
      
      def reset_options_screen(self, screen):
@@ -645,7 +623,8 @@ class Tetris:
                elif screen == "pause screen":
                     self.draw_window()
                     self.draw_gameloop()
-               
+                    self.draw_tetromino()
+                    
                pygame.draw.rect(WINDOW, LIGHT_GREY, PLAY_SCREEN, width=1)
                
                reset_options_text = font.render("RESET OPTIONS?", True, WHITE)
@@ -688,7 +667,6 @@ class Tetris:
                               self.options_screen(screen)
                pygame.display.update()
      
-     
      def draw_text(self, text, font, color, surface):
           textobj = font.render(text, True, color)
           textrect = textobj.get_rect()
@@ -730,7 +708,7 @@ class Tetris:
                
           if self.score >= lowest_score:
                new_score = self.score
-               score_number_text = font.render(str(new_score), True, WHITE)
+               score_number_text = font.render(f"{new_score:,}", True, WHITE)
                score_number_text_rect = score_number_text.get_rect(center=(GAME_OVER_SCREEN_WIDTH // 2, 40))
           else:
                new_score = False
@@ -743,7 +721,6 @@ class Tetris:
                     high_scores_rect = pygame.Rect(60, 30, 120, 120)
                     pygame.draw.rect(GAME_OVER_SCREEN, LIGHT_GREY, high_scores_rect, width=1)
                     
-                    
                     GAME_OVER_SCREEN.blit(game_over_text, game_over_text_rect)
                     GAME_OVER_SCREEN.blit(high_scores_text, high_scores_text_rect)
                     for i, score in enumerate(current_scores):
@@ -753,7 +730,7 @@ class Tetris:
                          GAME_OVER_SCREEN.blit(initial_to_draw, initial_to_draw_rect)
                          
                          # Drawing the scores
-                         score_to_draw = font.render(str(score[1]), True, WHITE)
+                         score_to_draw = font.render(f"{score[1]:,}", True, WHITE)
                          score_to_draw_rect = pygame.Rect(high_scores_rect.right - score_to_draw.get_width() - 5, 50 + i * SQUARE, 4 * SQUARE, SQUARE)
                          GAME_OVER_SCREEN.blit(score_to_draw, score_to_draw_rect)
                          
@@ -766,7 +743,6 @@ class Tetris:
                     GAME_OVER_SCREEN.blit(enter_initials_text, enter_initials_text_rect)
                     self.draw_text(f"{user_input}", font, WHITE, GAME_OVER_SCREEN)
                     ok_button.draw(WINDOW)
-                    
                
                for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -806,12 +782,8 @@ class Tetris:
                               elif len(user_input) < max_initials_length:
                                    user_input += event.unicode.upper()
                                    
-                                   
                pygame.display.update()
-                                   
-                              
-               
-     
+                
      def main(self):
           clock = pygame.time.Clock()
           running = True
@@ -825,7 +797,6 @@ class Tetris:
           holdable = True
           self.main_menu()
           
-          
           while running:
                clock.tick(60)
                current_time = pygame.time.get_ticks()
@@ -833,6 +804,9 @@ class Tetris:
                
                # Game end
                if self.board[0][4] != 0 or self.board[0][5] != 0:
+                    movement_right = False
+                    movement_left = False
+                    movement_bottom = False
                     self.game_over_screen()
                
                # Tetromino fall
@@ -862,6 +836,9 @@ class Tetris:
                     elif event.type == pygame.KEYDOWN:
                          # Pause
                          if event.key == pygame.K_ESCAPE:
+                              movement_right = False
+                              movement_left = False
+                              movement_bottom = False
                               self.pause_screen()
                          
                          # Rotate right
@@ -952,6 +929,7 @@ class Tetris:
                     last_fall_time = pygame.time.get_ticks()  # Reset fall time to avoid instant fall of new tetromino
 
           pygame.quit()
+
 
 
 
