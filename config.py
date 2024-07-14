@@ -43,8 +43,8 @@ GAME_OVER_SCREEN = pygame.Surface((GAME_OVER_SCREEN_WIDTH, GAME_OVER_SCREEN_HEIG
 GAME_OVER_SCREEN_RECT = GAME_OVER_SCREEN.get_rect(center=(WIDTH // 2, HEIGHT // 2))
 
 I = [['.....',
-      '.0000',
       '.....',
+      '.0000',
       '.....',
       '.....'],
      ['.....',
