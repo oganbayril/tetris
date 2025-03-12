@@ -5,13 +5,17 @@ import sys
 import json
 
 from button import Button
-from databases import options_file, default_keys, keys, score_file, scores
+from databases import options_file, default_keys, keys, score_file, scores, script_dir
 from config import *
 
-# Upload an image file named tetris_background.jpg in the same directory and uncomment lines 13, 14 and 51 to have a background of your choosing
+# Full path of your background image file (optional)
+background_image_file = r"your-background-image-file"
 
-# BACKGROUND_IMAGE = pygame.image.load(os.path.join("tetris", "tetris_background.jpg"))
-# BACKGROUND = pygame.transform.scale(BACKGROUND_IMAGE, (WIDTH, HEIGHT))
+check_if_background_image_exists = os.path.exists(background_image_file)
+
+if check_if_background_image_exists:
+     BACKGROUND_IMAGE = pygame.image.load(os.path.join(script_dir, background_image_file))
+     BACKGROUND = pygame.transform.scale(BACKGROUND_IMAGE, (WIDTH, HEIGHT))
 
 tetrominos = [I, J, L, O, S, T, Z]
 tetromino_colors = [LIGHT_BLUE, DARK_BLUE, ORANGE, YELLOW, GREEN, PURPLE, RED]
@@ -48,7 +52,8 @@ class Tetris:
      
      def draw_window(self):
           WINDOW.fill(BLACK)
-          # WINDOW.blit(BACKGROUND, (0, 0))
+          if check_if_background_image_exists:
+               WINDOW.blit(BACKGROUND, (0, 0))
           pygame.draw.rect(WINDOW, BLACK, PLAY_SCREEN)
           pygame.draw.rect(WINDOW, BLACK, NEXT_SCREEN)
           pygame.draw.rect(WINDOW, BLACK, HOLD_SCREEN)
@@ -211,8 +216,6 @@ class Tetris:
           for x, y in zip(x_positions, y_positions):
                pygame.draw.rect(WINDOW, tetromino_colors[tetrominos.index(self.tetromino)], (x, y, SQUARE - 1, SQUARE - 1))
 
-          pygame.display.update()
-
      
      def place_tetromino(self):
           # Update game board with tetromino and assign colors
@@ -224,6 +227,7 @@ class Tetris:
                          grid_x = int((x_position - PLAY_SCREEN_X_START) / SQUARE)
                          grid_y = int((y_position - PLAY_SCREEN_Y_START) / SQUARE)
                          self.board[grid_y][grid_x] = tetrominos.index(self.tetromino) + 1
+          pygame.time.delay(10) # Added a small delay to remove any accidental inputs like 2 tetrominos hard dropping at the same time (i don't know if this actually works, might need to change later)
           
           
      def check_collision_y(self):
@@ -287,6 +291,27 @@ class Tetris:
                               return True
           return False
      
+     def check_ghost_collision(self, y):
+          # Check bottom collision
+          if y == PLAY_SCREEN_Y_END-SQUARE:
+               return True
+          
+          # Check tetromino collision with other blocks
+          for i, string in enumerate(self.tetromino[self.rotation], start=-2):
+               for j, tetromino_piece in enumerate(string, start=-2):
+                    if tetromino_piece == "0":
+                         x_position = int((self.x + PLAY_SCREEN_X_END) / 2 + (j - 1) * SQUARE)
+                         y_position = y + (i + 1) * SQUARE
+                         grid_x = int((x_position - PLAY_SCREEN_X_START) / SQUARE)
+                         grid_y = int((y_position - PLAY_SCREEN_Y_START) / SQUARE)
+                         
+                         if grid_y + 1 >= len(self.board):
+                              return True
+                         
+                         if self.board[grid_y+1][grid_x] != 0:
+                              return True
+          return False
+     
      def clear_rows(self):
           rows_cleared = []
           
@@ -330,6 +355,36 @@ class Tetris:
           self.tetromino = self.next_tetromino
           self.next_tetromino = self.get_tetromino()
      
+     def ghost_piece(self):
+          ghost_y = self.y
+          
+          while not self.check_ghost_collision(ghost_y):
+               ghost_y += SQUARE
+          
+          ghost_min_x, ghost_max_x = PLAY_SCREEN_X_END, PLAY_SCREEN_X_START
+          ghost_min_y, ghost_max_y = PLAY_SCREEN_Y_END, PLAY_SCREEN_Y_START
+          ghost_x_positions, ghost_y_positions = [], []
+
+          for i, string in enumerate(self.tetromino[self.rotation], start=-2):
+               for j, tetromino_piece in enumerate(string, start=-2):
+                    if tetromino_piece == "0":
+                         x_position = (self.x + PLAY_SCREEN_X_END) / 2 + (j - 1) * SQUARE
+                         y_position = ghost_y + (i + 1) * SQUARE
+                         ghost_min_x = min(ghost_min_x, x_position)
+                         ghost_max_x = max(ghost_max_x, x_position + SQUARE)
+                         ghost_min_y = min(ghost_min_y, y_position)
+                         ghost_max_y = max(ghost_max_y, y_position)
+                         ghost_x_positions.append(x_position)
+                         ghost_y_positions.append(y_position)
+          
+          # Draw ghost tetromino
+          for x, y in zip(ghost_x_positions, ghost_y_positions):
+               pygame.draw.rect(WINDOW, tetromino_colors[tetrominos.index(self.tetromino)], (x, y, SQUARE - 1, SQUARE - 1), 1)
+          
+          pygame.display.update()
+          
+
+          
      def get_fall_delay(self, level):
           # Fall speed
           return max(50, 1100 - level * 100)
@@ -760,9 +815,6 @@ class Tetris:
                                    
                pygame.display.update()
                                    
-                              
-               
-     
      def main(self):
           clock = pygame.time.Clock()
           running = True
@@ -776,14 +828,13 @@ class Tetris:
           holdable = True
           self.main_menu()
           
-          
           while running:
                clock.tick(60)
                current_time = pygame.time.get_ticks()
                fall_delay = self.get_fall_delay(self.level)
                
                # Game end
-               if self.board[0][4] or self.board[0][5] != 0:
+               if self.board[0][4] != 0 or self.board[0][5] != 0:
                     self.game_over_screen()
                
                # Tetromino fall
@@ -887,6 +938,7 @@ class Tetris:
                self.draw_window()
                self.draw_gameloop()
                self.draw_tetromino()
+               self.ghost_piece()
                
                # Place tetromino if tetromino reached the bottom or if there's a collision with another tetromino in the y axis
                if self.check_collision_y():
