@@ -1,46 +1,140 @@
 import pygame
+import os
+
+os.environ['SDL_VIDEO_CENTERED'] = '1' # Makes sure the window is centered after resolution change
 
 BLACK, WHITE, LIGHT_GREY, GREY, DARK_GREY, DARK_GREEN = (0, 0, 0), (255, 255, 255), (128, 128, 128), (100, 100, 100), (58, 58, 58), (0, 100, 0)
-LIGHT_BLUE, DARK_BLUE, ORANGE, YELLOW, GREEN, PURPLE, RED = (0, 255, 255), (0, 0, 153), (255, 153, 51), (255, 255, 0), (0, 255, 0), (153, 51, 255), (255, 0, 0)
-WIDTH, HEIGHT = 800, 600
-SQUARE = 20
+LIGHT_BLUE, DARK_BLUE, ORANGE, YELLOW, GREEN, PURPLE, RED = (0, 255, 255), (0, 0, 153), (255, 153, 51), (255, 255, 0), (0, 255, 0), (153, 51, 255), (255, 0, 0) # Colors for tetrominos
 
-WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
+BASE_WIDTH, BASE_HEIGHT = 320, 180 # Base resolution to scale from
+RESOLUTION_SCALING_MULTIPLIERS = [2, 3, 4, 5, 6, 8, 10, 12] # Respectively 640x360, 960x540, 1280x720, 1600x900, 1920x1080, 2560x1440, 3200x1800, 3840x2160
+USER_CHOICE_SCALE = 1 # 1 IS DEFAULT (960x540)
+
+def update_resolution(scale_index):
+      global CELL_EDGE, RESOLUTION_DISPLAY, CENTER, PREDEFINED_POSITIONS, WINDOW
+      multiplier = RESOLUTION_SCALING_MULTIPLIERS[scale_index]
+      
+      width = BASE_WIDTH * multiplier
+      height = BASE_HEIGHT * multiplier
+      CELL_EDGE = 8 * multiplier  # Scale the grid size
+      RESOLUTION_DISPLAY = {"width": width,
+                              "height": height}
+      WINDOW = pygame.display.set_mode((RESOLUTION_DISPLAY["width"], RESOLUTION_DISPLAY["height"]))
+      CENTER = RESOLUTION_DISPLAY["width"] // 2, RESOLUTION_DISPLAY["height"] // 2
+      PREDEFINED_POSITIONS = {
+            "CENTER": lambda: CENTER,
+      }
+
+update_resolution(USER_CHOICE_SCALE)
+
 pygame.display.set_caption("Tetris")
 pygame.font.init()
-font = pygame.font.SysFont(None, SQUARE)
+font = pygame.font.SysFont(None, CELL_EDGE)
 
-PLAY_SCREEN_X_START, PLAY_SCREEN_Y_START, PLAY_SCREEN_X_END, PLAY_SCREEN_Y_END = 300, 100, 500, 500
-PLAY_SCREEN = pygame.Rect(PLAY_SCREEN_X_START, PLAY_SCREEN_Y_START, PLAY_SCREEN_X_END - PLAY_SCREEN_X_START, PLAY_SCREEN_Y_END - PLAY_SCREEN_Y_START)
+class Element:
+      def __init__(self, num_cells_width: int, num_cells_height: int, cell_edge: int, surface=False, center=None, **kwargs):
+            """
+            Initializes a pygame.Rect or pygame.Surface element with the given dimensions.
+            
+            Parameters:
+                  num_cells_width (int): The width of the element in terms of the number of cells.
+                  num_cells_height (int): The height of the element in terms of the number of cells.
+                  cell_edge (int): Size of a cell's edge, used to scale the element.
+                  surface (bool): If True, create a pygame.Surface; otherwise, create a pygame.Rect.
+                  center (tuple[int, int], optional): Center coordinates (x, y). Defaults to None.
+                  kwargs (dict): Additional keyword arguments to modify the element attributes.
+            """
+            self.cell_edge = cell_edge
+            self.num_cells_width = num_cells_width
+            self.num_cells_height = num_cells_height
+            self.element = surface
+            self.center = center
+            self.center_str = False
+            self.kwargs = kwargs
+            
+            # Calculate width and height
+            self.width = self.num_cells_width * self.cell_edge
+            self.height = self.num_cells_height * self.cell_edge
+            
+            # Resolve center if it's a predefined string
+            if self.element and isinstance(center, str) and center in PREDEFINED_POSITIONS:
+                  self.center_str = self.center
+                  self.center = PREDEFINED_POSITIONS[center]()
+            else:
+                  self.center = center  # If it's already a tuple, just use it
+            
+            # Create either a Rect or Surface depending on the 'surface' flag
+            if self.element:
+                  self.element = pygame.Surface((self.width, self.height))
+                  self.rect = self.element.get_rect(center=self.center)
+            else:
+                  self.element = pygame.Rect(0, 0, self.width, self.height)
+                  if self.center:
+                        self.kwargs["center"] = self.center
+            
+            # Apply additional attributes if any
+            for attr, expr in self.kwargs.items():
+                  setattr(self.element, attr, eval(expr, globals(), locals()))
 
-NEXT_SCREEN_X_START, NEXT_SCREEN_Y_START, NEXT_SCREEN_X_END, NEXT_SCREEN_Y_END = 600, 100, 720, 220
-NEXT_SCREEN = pygame.Rect(NEXT_SCREEN_X_START, NEXT_SCREEN_Y_START, NEXT_SCREEN_X_END - NEXT_SCREEN_X_START, NEXT_SCREEN_Y_END - NEXT_SCREEN_Y_START)
+      def update(self, cell_edge: int) -> None:
+            """Updates the element's size and position"""
+            self.cell_edge = cell_edge
+            self.width = self.num_cells_width * self.cell_edge
+            self.height = self.num_cells_height * self.cell_edge
+            
+            if self.center and self.center_str:
+                  self.center = PREDEFINED_POSITIONS[self.center_str]()
+            
+            # Check the type of the element to update either Rect or Surface accordingly
+            if isinstance(self.element, pygame.Surface):
+                  self.element = pygame.Surface((self.width, self.height))
+                  # If center is passed, update it; otherwise, keep the previous center
+                  if self.center:
+                        self.rect = self.element.get_rect(center=self.center)  # Update the rect with the new center
+                  else:
+                        self.rect = self.element.get_rect()  # Use default positioning if no center is given
+            elif isinstance(self.element, pygame.Rect):
+                  self.element = pygame.Rect(0, 0, self.width, self.height)
+            
+            for attr, expr in self.kwargs.items():
+                  setattr(self.element, attr, eval(expr, globals(), locals()))
 
-HOLD_SCREEN_X_START, HOLD_SCREEN_Y_START, HOLD_SCREEN_X_END, HOLD_SCREEN_Y_END = 80, 100, 200, 220
-HOLD_SCREEN = pygame.Rect(HOLD_SCREEN_X_START, HOLD_SCREEN_Y_START, HOLD_SCREEN_X_END - HOLD_SCREEN_X_START, HOLD_SCREEN_Y_END - HOLD_SCREEN_Y_START)
+      def draw(self, screen) -> None:
+            """Draw the element if it's a surface."""
+            if self.element:
+                  screen.blit(self.element, self.rect)
 
-SCORE_SCREEN_X_START, SCORE_SCREEN_Y_START, SCORE_SCREEN_X_END, SCORE_SCREEN_Y_END = 80, 280, 200, 500
-SCORE_SCREEN = pygame.Rect(SCORE_SCREEN_X_START, SCORE_SCREEN_Y_START, SCORE_SCREEN_X_END - SCORE_SCREEN_X_START, SCORE_SCREEN_Y_END - SCORE_SCREEN_Y_START)
+PLAYFIELD_FRAME = Element(10, 20, CELL_EDGE, center="CENTER")
+NEXT_FRAME = Element(6, 6, CELL_EDGE, top="PLAYFIELD_FRAME.element.top", centerx="(RESOLUTION_DISPLAY['width'] + PLAYFIELD_FRAME.element.right) // 2")
+HOLD_FRAME = Element(6, 6, CELL_EDGE, top="PLAYFIELD_FRAME.element.top", centerx="PLAYFIELD_FRAME.element.left // 2")
+SCORE_FRAME = Element(6, 12, CELL_EDGE, bottom="PLAYFIELD_FRAME.element.bottom", centerx="PLAYFIELD_FRAME.element.left // 2")
 
-PAUSE_SCREEN_WIDTH, PAUSE_SCREEN_HEIGHT = 180, 300
-PAUSE_SCREEN = pygame.Surface((PAUSE_SCREEN_WIDTH, PAUSE_SCREEN_HEIGHT))
-PAUSE_SCREEN_RECT = PAUSE_SCREEN.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+PAUSE_OVERLAY = Element(6, 15, CELL_EDGE, surface=True, center="CENTER")
+OPTIONS_OVERLAY = Element(6, 15, CELL_EDGE, surface=True, center="CENTER")
+KEY_MAPPING_OVERLAY = Element(15, 20, CELL_EDGE, surface=True, center="CENTER")
+KEYBIND_OVERLAY = Element(9, 9, CELL_EDGE, surface=True, center="CENTER")
+RESET_KEY_MAPPING_OVERLAY = Element(9, 9, CELL_EDGE, surface=True, center="CENTER")
+RESOLUTIONS_OVERLAY = Element(8, 16, CELL_EDGE, surface=True, center="CENTER")
+GAME_OVER_OVERLAY = Element(12, 12, CELL_EDGE, surface=True, center="CENTER")
+KEEP_CHANGES_OVERLAY = Element(8, 8, CELL_EDGE, surface=True, center="CENTER")
 
-OPTIONS_SCREEN_WIDTH, OPTIONS_SCREEN_HEIGHT = 300, 400
-OPTIONS_SCREEN = pygame.Surface((OPTIONS_SCREEN_WIDTH, OPTIONS_SCREEN_HEIGHT))
-OPTIONS_SCREEN_RECT = OPTIONS_SCREEN.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+FRAMES = [
+      PLAYFIELD_FRAME,
+      NEXT_FRAME,
+      HOLD_FRAME,
+      SCORE_FRAME,
+]
 
-KEYBIND_SCREEN_WIDTH, KEYBIND_SCREEN_HEIGHT = 250, 200
-KEYBIND_SCREEN = pygame.Surface((KEYBIND_SCREEN_WIDTH, KEYBIND_SCREEN_HEIGHT))
-KEYBIND_SCREEN_RECT = KEYBIND_SCREEN.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-
-RESET_OPTIONS_SCREEN_WIDTH, RESET_OPTIONS_SCREEN_HEIGHT = 200, 160
-RESET_OPTIONS_SCREEN = pygame.Surface((RESET_OPTIONS_SCREEN_WIDTH, RESET_OPTIONS_SCREEN_HEIGHT))
-RESET_OPTIONS_SCREEN_RECT = RESET_OPTIONS_SCREEN.get_rect(center=(WIDTH // 2, HEIGHT // 2))
-
-GAME_OVER_SCREEN_WIDTH, GAME_OVER_SCREEN_HEIGHT = 240, 240
-GAME_OVER_SCREEN = pygame.Surface((GAME_OVER_SCREEN_WIDTH, GAME_OVER_SCREEN_HEIGHT))
-GAME_OVER_SCREEN_RECT = GAME_OVER_SCREEN.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+OVERLAYS = [
+      PAUSE_OVERLAY,
+      OPTIONS_OVERLAY,
+      KEY_MAPPING_OVERLAY,
+      KEYBIND_OVERLAY,
+      RESET_KEY_MAPPING_OVERLAY,
+      RESOLUTIONS_OVERLAY,
+      GAME_OVER_OVERLAY,
+      KEEP_CHANGES_OVERLAY,
+]
 
 I = [['.....',
       '.0000',

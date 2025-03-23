@@ -2,18 +2,20 @@ import os
 import json
 import pygame
 
-options_file = "options.json"
-score_file = "scores.json"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+options_file = f"{script_dir}\options.json"
+score_file = f"{script_dir}\scores.json"
+resolutions_file = f"{script_dir}\resolutions.json"
 
 # Default keys for tetris
 default_keys = {
-        "move right": pygame.K_RIGHT,
-        "move left": pygame.K_LEFT,
-        "rotate right": pygame.K_UP,
-        "rotate left": pygame.K_z,
-        "soft drop": pygame.K_DOWN,
-        "hard drop": pygame.K_SPACE,
-        "hold": pygame.K_c
+        "MOVE RIGHT": pygame.K_RIGHT,
+        "MOVE LEFT": pygame.K_LEFT,
+        "ROTATE RIGHT": pygame.K_UP,
+        "ROTATE LEFT": pygame.K_z,
+        "SOFT DROP": pygame.K_DOWN,
+        "HARD DROP": pygame.K_SPACE,
+        "HOLD": pygame.K_c
 }
 
 # Getting keys
