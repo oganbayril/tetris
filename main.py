@@ -28,10 +28,10 @@ class Tetris:
           self.reset_game()
 
      def reset_game(self, level=1):
-          self.x = cfg.PLAYFIELD_FRAME.element.left
-          self.y = cfg.PLAYFIELD_FRAME.element.top
+          self.grid_x = 2
+          self.grid_y = -1
           self.rows = cfg.PLAYFIELD_FRAME.num_cells_width
-          self.columns = 20
+          self.columns = cfg.PLAYFIELD_FRAME.num_cells_height
           self.rotation = 0
           self.bag = tetrominos.copy()
           self.tetromino = self.get_tetromino()
@@ -50,7 +50,7 @@ class Tetris:
           
           return random_tetromino
      
-     def draw_window(self):
+     def draw_frames(self):
           cfg.WINDOW.fill(cfg.BLACK)
           if check_if_background_image_exists:
                cfg.WINDOW.blit(BACKGROUND, (0, 0))
@@ -59,7 +59,7 @@ class Tetris:
           pygame.draw.rect(cfg.WINDOW, cfg.BLACK, cfg.HOLD_FRAME.element)
           pygame.draw.rect(cfg.WINDOW, cfg.BLACK, cfg.SCORE_FRAME.element)
           
-          # Draw next tetromino screen
+          # Draw next tetromino frame
           pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.NEXT_FRAME.element, width=1)
           next_text = cfg.font.render("NEXT", True, cfg.WHITE)
           next_rect = next_text.get_rect()
@@ -67,7 +67,7 @@ class Tetris:
           next_rect.y = cfg.NEXT_FRAME.element.y + cfg.CELL_EDGE # Small increment so the text isn't directly on the border of the rectangle
           cfg.WINDOW.blit(next_text, next_rect)
           
-          # Draw hold screen
+          # Draw hold frame
           pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.HOLD_FRAME.element, width=1)
           hold_text = cfg.font.render("HOLD", True, cfg.WHITE)
           hold_rect = hold_text.get_rect()
@@ -75,7 +75,7 @@ class Tetris:
           hold_rect.y = cfg.HOLD_FRAME.element.y + cfg.CELL_EDGE
           cfg.WINDOW.blit(hold_text, hold_rect)
           
-          # Draw score screen
+          # Draw score frame
           pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.SCORE_FRAME.element, width=1)
           score_text = cfg.font.render("SCORE", True, cfg.WHITE)
           level_text = cfg.font.render("LEVEL", True, cfg.WHITE)
@@ -93,12 +93,48 @@ class Tetris:
           cfg.WINDOW.blit(level_text, level_text_rect)
           cfg.WINDOW.blit(lines_text, lines_text_rect)
      
-     def draw_gameloop(self):
+     def draw_next_hold_screens(self, frame):
+          frame_center_x = frame.element.centerx
+          frame_center_y = frame.element.centery
+          
+          if frame == cfg.NEXT_FRAME:
+               tetromino = self.next_tetromino
+          elif frame == cfg.HOLD_FRAME:
+               tetromino = self.hold_tetromino
+
+          # Find height (count of rows with at least one '0')
+          tetromino_height = sum(1 for row in tetromino[0] if "0" in row) * cfg.CELL_EDGE
+
+          # Find width (difference between leftmost and rightmost '0')
+          leftmost = min((row.find("0") for row in tetromino[0] if "0" in row), default=0)
+          rightmost = max((row.rfind("0") for row in tetromino[0] if "0" in row), default=0)
+          tetromino_width = (rightmost - leftmost + 1) * cfg.CELL_EDGE
+          
+          # Adjust position so the tetromino is centered inside the frame
+          start_x = frame_center_x - tetromino_width // 2
+          start_y = frame_center_y - tetromino_height // 2
+          
+          if len(tetromino) == 1:
+               correction_x = 2
+          else:
+               correction_x = 1
+          correction_y = 1
+
+          # Draw the tetromino
+          for i, row in enumerate(tetromino[0]):
+               for j, block in enumerate(row):
+                    if block == "0":
+                         x = start_x + (j - correction_x) * cfg.CELL_EDGE
+                         y = start_y + (i - correction_y) * cfg.CELL_EDGE
+                         pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos.index(tetromino)],
+                                        (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
+     
+     def draw_playframe_lines(self):
           # Draw lines in the play screen
           line_x = cfg.PLAYFIELD_FRAME.element.left
           line_y = cfg.PLAYFIELD_FRAME.element.top
           
-          for _ in range(self.rows+1):
+          for _ in range(self.rows + 1):
                pygame.draw.line(cfg.WINDOW, cfg.GREY, (line_x, line_y), (line_x, cfg.PLAYFIELD_FRAME.element.bottom))
                for _ in range(self.columns + 1):
                     pygame.draw.line(cfg.WINDOW, cfg.GREY, (line_x, line_y), (cfg.PLAYFIELD_FRAME.element.right, line_y))
@@ -107,77 +143,15 @@ class Tetris:
                
                line_y = cfg.PLAYFIELD_FRAME.element.top
           line_x = cfg.PLAYFIELD_FRAME.element.left
-          
-          # Draw hold tetromino
-          hold_x_positions = []
-          hold_y_positions = []
-          
-          if len(self.hold_tetromino) == 4 or (len(self.hold_tetromino) == 2 and self.hold_tetromino != cfg.I):
-               for i, string in enumerate(self.hold_tetromino[0], start=-2):
-                    for j, tetromino_piece in enumerate(string, start=-2):
-                         if tetromino_piece == "0":
-                              x_position = (cfg.HOLD_FRAME.element.left + cfg.HOLD_FRAME.element.right) / 2 + j * cfg.CELL_EDGE - cfg.CELL_EDGE / 2
-                              y_position = (cfg.HOLD_FRAME.element.top + cfg.HOLD_FRAME.element.bottom) / 2 + i * cfg.CELL_EDGE
-                              hold_x_positions.append(x_position)
-                              hold_y_positions.append(y_position)
-          elif self.hold_tetromino == cfg.I:
-               for i, string in enumerate(self.hold_tetromino[0], start=-2):
-                    for j, tetromino_piece in enumerate(string, start=-2):
-                         if tetromino_piece == "0":
-                              x_position = (cfg.HOLD_FRAME.element.left + cfg.HOLD_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE
-                              y_position = (cfg.HOLD_FRAME.element.top + cfg.HOLD_FRAME.element.bottom) / 2 + (i + 1) * cfg.CELL_EDGE - cfg.CELL_EDGE / 2
-                              hold_x_positions.append(x_position)
-                              hold_y_positions.append(y_position)
-          else:
-               for i, string in enumerate(self.hold_tetromino[0], start=-2):
-                    for j, tetromino_piece in enumerate(string, start=-2):
-                         if tetromino_piece == "0":
-                              x_position = (cfg.HOLD_FRAME.element.left + cfg.HOLD_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE
-                              y_position = (cfg.HOLD_FRAME.element.top + cfg.HOLD_FRAME.element.bottom) / 2 + i * cfg.CELL_EDGE
-                              hold_x_positions.append(x_position)
-                              hold_y_positions.append(y_position)
-
-          for x, y in list(zip(hold_x_positions, hold_y_positions)):
-               pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos.index(self.hold_tetromino)], (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
-          
-          # Draw next tetromino
-          next_x_positions = []
-          next_y_positions = []
-          
-          if len(self.next_tetromino) == 4 or (len(self.next_tetromino) == 2 and self.next_tetromino != cfg.I):
-               for i, string in enumerate(self.next_tetromino[0], start=-2):
-                    for j, tetromino_piece in enumerate(string, start=-2):
-                         if tetromino_piece == "0":
-                              x_position = (cfg.NEXT_FRAME.element.left + cfg.NEXT_FRAME.element.right) / 2 + j * cfg.CELL_EDGE - cfg.CELL_EDGE / 2
-                              y_position = (cfg.NEXT_FRAME.element.top + cfg.NEXT_FRAME.element.bottom) / 2 + i * cfg.CELL_EDGE
-                              next_x_positions.append(x_position)
-                              next_y_positions.append(y_position)
-          elif self.next_tetromino == cfg.I:
-               for i, string in enumerate(self.next_tetromino[0], start=-2):
-                    for j, tetromino_piece in enumerate(string, start=-2):
-                         if tetromino_piece == "0":
-                              x_position = (cfg.NEXT_FRAME.element.left + cfg.NEXT_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE
-                              y_position = (cfg.NEXT_FRAME.element.top + cfg.NEXT_FRAME.element.bottom) / 2 + (i + 1) * cfg.CELL_EDGE - cfg.CELL_EDGE / 2
-                              next_x_positions.append(x_position)
-                              next_y_positions.append(y_position)
-          else:
-               for i, string in enumerate(self.next_tetromino[0], start=-2):
-                    for j, tetromino_piece in enumerate(string, start=-2):
-                         if tetromino_piece == "0":
-                              x_position = (cfg.NEXT_FRAME.element.left + cfg.NEXT_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE
-                              y_position = (cfg.NEXT_FRAME.element.top + cfg.NEXT_FRAME.element.bottom) / 2 + i * cfg.CELL_EDGE
-                              next_x_positions.append(x_position)
-                              next_y_positions.append(y_position)
-
-          for x, y in list(zip(next_x_positions, next_y_positions)):
-               pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos.index(self.next_tetromino)], (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
-          
+     
+     def draw_placed_tetrominos(self):
           # Draw placed tetrominos
           for y, row in enumerate(self.board):
                for x, val in enumerate(row):
                     if val != 0:
                          pygame.draw.rect(cfg.WINDOW, tetromino_colors[val - 1], (cfg.PLAYFIELD_FRAME.element.left + (x * cfg.CELL_EDGE), cfg.PLAYFIELD_FRAME.element.top + (y * cfg.CELL_EDGE), cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
-          
+     
+     def draw_score_screen(self):
           # Draw corresponding numbers in score screen
           score_number = cfg.font.render(str(self.score), True, cfg.WHITE)
           level_number = cfg.font.render(str(self.level), True, cfg.WHITE)
@@ -201,125 +175,102 @@ class Tetris:
           min_y, max_y = cfg.PLAYFIELD_FRAME.element.bottom, cfg.PLAYFIELD_FRAME.element.top
           x_positions, y_positions = [], []
 
-          for i, string in enumerate(self.tetromino[self.rotation], start=-2):
-               for j, tetromino_piece in enumerate(string, start=-2):
+          for i, string in enumerate(self.tetromino[self.rotation]):
+               for j, tetromino_piece in enumerate(string):
                     if tetromino_piece == "0":
-                         x_position = (self.x + cfg.PLAYFIELD_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE
-                         y_position = self.y + (i + 1) * cfg.CELL_EDGE
+                         # Convert grid coordinates to pixel coordinates
+                         x_position = cfg.PLAYFIELD_FRAME.element.left + (self.grid_x + j) * cfg.CELL_EDGE
+                         y_position = cfg.PLAYFIELD_FRAME.element.top + (self.grid_y + i) * cfg.CELL_EDGE
+
                          min_x = min(min_x, x_position)
                          max_x = max(max_x, x_position + cfg.CELL_EDGE)
                          min_y = min(min_y, y_position)
                          max_y = max(max_y, y_position)
+
                          x_positions.append(x_position)
                          y_positions.append(y_position)
           
           # Implementing wall kick
           while min(x_positions) < cfg.PLAYFIELD_FRAME.element.left:
+               self.grid_x += 1
                x_positions = [x + cfg.CELL_EDGE for x in x_positions]
-               self.x += 2 * cfg.CELL_EDGE
           while max(x_positions) >= cfg.PLAYFIELD_FRAME.element.right:
+               self.grid_x -= 1
                x_positions = [x - cfg.CELL_EDGE for x in x_positions]
-               self.x -= 2 * cfg.CELL_EDGE
-          
+
           # Draw tetromino
           for x, y in zip(x_positions, y_positions):
-               pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos.index(self.tetromino)], (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
-
+               pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos.index(self.tetromino)], 
+                                   (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
      
+     def draw_ghost_piece(self, display_update=True):
+          ghost_y = self.get_ghost_position()
+          
+          for i, row in enumerate(self.tetromino[self.rotation]):
+               for j, block in enumerate(row):
+                    if block == "0":
+                         x = cfg.PLAYFIELD_FRAME.element.left + (self.grid_x + j) * cfg.CELL_EDGE
+                         y = cfg.PLAYFIELD_FRAME.element.top + (ghost_y + i) * cfg.CELL_EDGE
+                         pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos.index(self.tetromino)], (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1), 1)
+
+          if display_update:
+               pygame.display.update()
+     
+     def draw_gameloop(self):
+          self.draw_next_hold_screens(cfg.NEXT_FRAME)
+          self.draw_next_hold_screens(cfg.HOLD_FRAME)
+          self.draw_playframe_lines()
+          self.draw_placed_tetrominos()
+          self.draw_score_screen()
+          self.draw_tetromino()
+          self.draw_ghost_piece(display_update=False)
+
      def place_tetromino(self):
-          # Update game board with tetromino and assign colors
-          for i, string in enumerate(self.tetromino[self.rotation], start=-2):
-               for j, tetromino_piece in enumerate(string, start=-2):
-                    if tetromino_piece == "0":
-                         x_position = int((self.x + cfg.PLAYFIELD_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE)
-                         y_position = self.y + (i + 1) * cfg.CELL_EDGE
-                         grid_x = int((x_position - cfg.PLAYFIELD_FRAME.element.left) / cfg.CELL_EDGE)
-                         grid_y = int((y_position - cfg.PLAYFIELD_FRAME.element.top) / cfg.CELL_EDGE)
+          for i, row in enumerate(self.tetromino[self.rotation]):
+               for j, block in enumerate(row):
+                    if block == "0":
+                         grid_x = self.grid_x + j
+                         grid_y = self.grid_y + i
+                         
+                         # Place tetromino on the board
                          self.board[grid_y][grid_x] = tetrominos.index(self.tetromino) + 1
           pygame.time.delay(10) # Added a small delay to remove any accidental inputs like 2 tetrominos hard dropping at the same time (i don't know if this actually works, might need to change later)
           
-          
-     def check_collision_y(self):
-          # Check bottom collision
-          if max(y_positions) == cfg.PLAYFIELD_FRAME.element.bottom-cfg.CELL_EDGE:
-               return True
-          
-          # Check tetromino collision with other blocks
-          for i, string in enumerate(self.tetromino[self.rotation], start=-2):
-               for j, tetromino_piece in enumerate(string, start=-2):
-                    if tetromino_piece == "0":
-                         x_position = int((self.x + cfg.PLAYFIELD_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE)
-                         y_position = self.y + (i + 1) * cfg.CELL_EDGE
-                         grid_x = int((x_position - cfg.PLAYFIELD_FRAME.element.left) / cfg.CELL_EDGE)
-                         grid_y = int((y_position - cfg.PLAYFIELD_FRAME.element.top) / cfg.CELL_EDGE)
-                         
-                         if grid_y + 1 >= len(self.board):
-                              return True
-                         
-                         if self.board[grid_y+1][grid_x] != 0:
-                              return True
-          return False
-     
-     def check_collision_x(self, direction):
-          # Check left or right collision
-          for i, string in enumerate(self.tetromino[self.rotation], start=-2):
-               for j, tetromino_piece in enumerate(string, start=-2):
-                    if tetromino_piece == "0":
-                         x_position = (self.x + cfg.PLAYFIELD_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE
-                         y_position = self.y + (i + 1) * cfg.CELL_EDGE
-                         grid_x = int((x_position - cfg.PLAYFIELD_FRAME.element.left) / cfg.CELL_EDGE)
-                         grid_y = int((y_position - cfg.PLAYFIELD_FRAME.element.top) / cfg.CELL_EDGE)
+     def check_collision(self, dx=0, dy=0, grid_y=None, rotation=None):
+          if self.tetromino == cfg.O:
+               rotation = 0
+          else:
+               rotation = rotation if rotation is not None else self.rotation
 
-                         if direction == "left" and grid_x <= 0:
-                              return True
-                         elif direction == "right" and grid_x >= self.rows-1:
-                              return True
-                         elif direction == "left" and self.board[grid_y][grid_x-1] != 0:
-                              return True
-                         elif direction == "right" and self.board[grid_y][grid_x+1] != 0:
-                              return True
-          return False
-     
-     def check_collision_rotation(self, value):
-          # Check if there'll be collision after rotation
-          new_rotation = (self.rotation + value) % len(self.tetromino)
+          for i, row in enumerate(self.tetromino[rotation]):
+               for j, block in enumerate(row):
+                    if block == "0":
+                         new_x = self.grid_x + j + dx
+                         if grid_y:
+                              new_y = grid_y + i + dy
+                         else:
+                              new_y = self.grid_y + i + dy
+                         
+                         # Check boundaries
+                         if new_x < 0 or new_x >= cfg.PLAYFIELD_FRAME.num_cells_width:
+                              return True  # Collision with left/right walls
+                         if new_y >= cfg.PLAYFIELD_FRAME.num_cells_height:
+                              return True  # Collision with the floor
+                         
+                         # Check if cell is occupied
+                         if self.board[new_y][new_x]:  
+                              return True  # Collision with another block
+                         
+          return False  # No collision
+
+     def get_ghost_position(self):
+          ghost_y = self.grid_y
           
-          for i, string in enumerate(self.tetromino[new_rotation], start=-2):
-               for j, tetromino_piece in enumerate(string, start=-2):
-                    if tetromino_piece == "0":
-                         x_position = (self.x + cfg.PLAYFIELD_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE
-                         y_position = self.y + (i + 1) * cfg.CELL_EDGE
-                         grid_x = int((x_position - cfg.PLAYFIELD_FRAME.element.left) / cfg.CELL_EDGE)
-                         grid_y = int((y_position - cfg.PLAYFIELD_FRAME.element.top) / cfg.CELL_EDGE)
-                         
-                         # Return false if the x position goes out of bounds, otherwise can't implement wall kick
-                         if grid_x >= 10:
-                              return False
-                         # Return true if there's collision
-                         if self.board[grid_y][grid_x] != 0:
-                              return True
-          return False
-     
-     def check_collision_ghost_piece(self, y):
-          # Check bottom collision
-          if y == cfg.PLAYFIELD_FRAME.element.bottom-cfg.CELL_EDGE:
-               return True
+          while not self.check_collision(dy=1, grid_y=ghost_y):
+               ghost_y += 1
           
-          # Check tetromino collision with other blocks
-          for i, string in enumerate(self.tetromino[self.rotation], start=-2):
-               for j, tetromino_piece in enumerate(string, start=-2):
-                    if tetromino_piece == "0":
-                         x_position = int((self.x + cfg.PLAYFIELD_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE)
-                         y_position = y + (i + 1) * cfg.CELL_EDGE
-                         grid_x = int((x_position - cfg.PLAYFIELD_FRAME.element.left) / cfg.CELL_EDGE)
-                         grid_y = int((y_position - cfg.PLAYFIELD_FRAME.element.top) / cfg.CELL_EDGE)
-                         
-                         if grid_y + 1 >= len(self.board):
-                              return True
-                         
-                         if self.board[grid_y+1][grid_x] != 0:
-                              return True
-          return False
+          return ghost_y
+
      
      def clear_rows(self):
           rows_cleared = []
@@ -352,53 +303,21 @@ class Tetris:
      
      def hard_drop(self):
           # Drop tetromino until y collision
-          while not self.check_collision_y():
-               self.y += cfg.CELL_EDGE
+          while not self.check_collision(dy=1):
+               self.grid_y += 1
                self.score += 2
           self.place_tetromino()
           
           # Reset tetromino position and get a new one
-          self.x = cfg.PLAYFIELD_FRAME.element.left
-          self.y = cfg.PLAYFIELD_FRAME.element.top
+          self.grid_x = 2
+          self.grid_y = -1
           self.rotation = 0
           self.tetromino = self.next_tetromino
           self.next_tetromino = self.get_tetromino()
-     
-     def ghost_piece(self, display_update=True):
-          ghost_y = self.y
-          
-          while not self.check_collision_ghost_piece(ghost_y):
-               ghost_y += cfg.CELL_EDGE
-          
-          ghost_min_x, ghost_max_x = cfg.PLAYFIELD_FRAME.element.right, cfg.PLAYFIELD_FRAME.element.left
-          ghost_min_y, ghost_max_y = cfg.PLAYFIELD_FRAME.element.bottom, cfg.PLAYFIELD_FRAME.element.top
-          ghost_x_positions, ghost_y_positions = [], []
-
-          for i, string in enumerate(self.tetromino[self.rotation], start=-2):
-               for j, tetromino_piece in enumerate(string, start=-2):
-                    if tetromino_piece == "0":
-                         x_position = (self.x + cfg.PLAYFIELD_FRAME.element.right) / 2 + (j - 1) * cfg.CELL_EDGE
-                         y_position = ghost_y + (i + 1) * cfg.CELL_EDGE
-                         ghost_min_x = min(ghost_min_x, x_position)
-                         ghost_max_x = max(ghost_max_x, x_position + cfg.CELL_EDGE)
-                         ghost_min_y = min(ghost_min_y, y_position)
-                         ghost_max_y = max(ghost_max_y, y_position)
-                         ghost_x_positions.append(x_position)
-                         ghost_y_positions.append(y_position)
-          
-          # Draw ghost tetromino
-          for x, y in zip(ghost_x_positions, ghost_y_positions):
-               pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos.index(self.tetromino)], (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1), 1)
-          
-          if display_update:
-               pygame.display.update()
-          
-
           
      def get_fall_delay(self, level):
           # Fall speed
           return max(50, 1100 - level * 100)
-     
      
      def main_menu(self):
           global starting_level
@@ -415,7 +334,7 @@ class Tetris:
                }
 
           while main_menu_bool:
-               self.draw_window()
+               self.draw_frames()
                pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.PLAYFIELD_FRAME.element, width=1)
                high_scores_rect = pygame.Rect(0, 0, cfg.CELL_EDGE * 6, cfg.CELL_EDGE * 6)
                high_scores_rect.center = cfg.RESOLUTION_DISPLAY["width"] // 2, cfg.RESOLUTION_DISPLAY["height"] // 2
@@ -530,9 +449,9 @@ class Tetris:
           options_screen_bool = True
           
           while options_screen_bool:
-               self.draw_window()
+               self.draw_frames()
                if screen == "pause screen":
-                    self.draw_gameloop()
+                    self.draw_playframe_lines()
                     self.draw_tetromino()
                     self.ghost_piece(display_update=False)
 
@@ -568,9 +487,9 @@ class Tetris:
           changing_key = True
           
           while changing_key:
-               self.draw_window()
+               self.draw_frames()
                if screen == "pause screen":
-                    self.draw_gameloop()
+                    self.draw_playframe_lines()
                     self.draw_tetromino()
                     self.ghost_piece(display_update=False)
                     
@@ -620,9 +539,9 @@ class Tetris:
           reset_key_mapping_bool = True
           
           while reset_key_mapping_bool:
-               self.draw_window()
+               self.draw_frames()
                if screen == "pause screen":
-                    self.draw_gameloop()
+                    self.draw_playframe_lines()
                     self.draw_tetromino()
                     self.ghost_piece(display_update=False)
                
@@ -743,9 +662,9 @@ class Tetris:
           
           resolutions_screen_bool = True
           while resolutions_screen_bool:
-               self.draw_window()
+               self.draw_frames()
                if screen == "pause screen":
-                    self.draw_gameloop()
+                    self.draw_playframe_lines()
                     self.draw_tetromino()
                     self.ghost_piece(display_update=False)
                cfg.RESOLUTIONS_OVERLAY.draw(cfg.WINDOW)
@@ -770,10 +689,8 @@ class Tetris:
                                    self.display_keep_changes_screen(i, screen)
                
                pygame.display.update()
-     
+          
      def display_keep_changes_screen(self, index, screen):
-          # TODO: ADD SUPPORT FOR CHANGING RESOLUTION MID-GAME
-          #current_left, current_top
           cfg.update_resolution(index)
           if check_if_background_image_exists:
                global BACKGROUND
@@ -785,12 +702,12 @@ class Tetris:
           
           for frame in cfg.FRAMES:
                frame.update(cfg.CELL_EDGE)
-
+     
           keep_changes_bool = True
           while keep_changes_bool:
-               self.draw_window()
+               self.draw_frames()
                if screen == "pause screen":
-                    self.draw_gameloop()
+                    self.draw_playframe_lines()
                     self.draw_tetromino()
                     self.ghost_piece(display_update=False)
                
@@ -953,21 +870,21 @@ class Tetris:
                
                # Tetromino fall
                if current_time - last_fall_time > fall_delay:
-                    self.y += cfg.CELL_EDGE
+                    self.grid_y += 1
                     last_fall_time = current_time
                
                # Continuous movement
-               if movement_left and not self.check_collision_x("left"):
+               if movement_left and not self.check_collision(dx=-1):
                     if current_time - last_move_time > move_fast_delay:
-                         self.x -= 2 * cfg.CELL_EDGE
+                         self.grid_x -= 1
                          last_move_time = current_time
-               if movement_right and not self.check_collision_x("right"):
+               if movement_right and not self.check_collision(dx=1):
                     if current_time - last_move_time > move_fast_delay:
-                         self.x += 2 * cfg.CELL_EDGE
+                         self.grid_x += 1
                          last_move_time = current_time
-               if movement_bottom and not self.check_collision_y():
+               if movement_bottom and not self.check_collision(dy=1):
                     if current_time - last_move_time > move_fast_delay:
-                         self.y += cfg.CELL_EDGE
+                         self.grid_y += 1
                          self.score += 1
                          last_move_time = current_time
 
@@ -981,13 +898,13 @@ class Tetris:
                               self.display_pause_screen()
                          
                          # Rotate right
-                         elif event.key == current_keys["ROTATE RIGHT"] and not self.check_collision_rotation(1):
+                         elif event.key == current_keys["ROTATE RIGHT"]:
                               self.rotation += 1
                               if self.rotation == len(self.tetromino):
                                    self.rotation = 0
                          
                          # Rotate left
-                         elif event.key == current_keys["ROTATE LEFT"] and not self.check_collision_rotation(-1):
+                         elif event.key == current_keys["ROTATE LEFT"]:
                               if self.rotation == 0:
                                    self.rotation = len(self.tetromino)
                               self.rotation -= 1
@@ -1000,26 +917,26 @@ class Tetris:
                          # Hold 
                          elif event.key == current_keys["HOLD"]:
                               if holdable:
+                                   # If there is no tetromino in hold, put the current tetromino in hold and get a new one
                                    if len(self.hold_tetromino) == 1 and self.hold_tetromino != cfg.O:
                                         self.hold_tetromino = self.tetromino
-                                        self.x = cfg.PLAYFIELD_FRAME.element.left
-                                        self.y = cfg.PLAYFIELD_FRAME.element.top
+                                        self.grid_x = 2
+                                        self.grid_y = -1
                                         self.rotation = 0
                                         self.tetromino = self.next_tetromino
                                         self.next_tetromino = self.get_tetromino()
                                         holdable = False
+                                   # If there is a tetromino in hold, swap the hold and current tetrominos
                                    else:
-                                        placeholder = self.hold_tetromino
-                                        self.hold_tetromino = self.tetromino
-                                        self.tetromino = placeholder
-                                        self.x = cfg.PLAYFIELD_FRAME.element.left
-                                        self.y = cfg.PLAYFIELD_FRAME.element.top
+                                        self.tetromino, self.hold_tetromino = self.hold_tetromino, self.tetromino
+                                        self.grid_x = 2
+                                        self.grid_y = -1
                                         self.rotation = 0
                                         holdable = False
                          
                          # Soft drop
-                         elif event.key == current_keys["SOFT DROP"] and not self.check_collision_y():
-                              self.y += cfg.CELL_EDGE
+                         elif event.key == current_keys["SOFT DROP"] and not self.check_collision(dy=1):
+                              self.grid_y += 1
                               movement_bottom = True
                               self.score += 1
                               last_move_time = current_time + initial_move_delay  # Adding initial delay for the first move
@@ -1027,15 +944,15 @@ class Tetris:
                          # Left
                          elif event.key == current_keys["MOVE LEFT"]:
                               movement_left = True
-                              if not self.check_collision_x("left"):
-                                   self.x -= 2 * cfg.CELL_EDGE
+                              if not self.check_collision(dx=-1):
+                                   self.grid_x -= 1
                               last_move_time = current_time + initial_move_delay  # Adding initial delay for the first move
                          
                          # Right
                          elif event.key == current_keys["MOVE RIGHT"]:
                               movement_right = True
-                              if not self.check_collision_x("right"):
-                                   self.x += 2 * cfg.CELL_EDGE
+                              if not self.check_collision(dx=1):
+                                   self.grid_x += 1 
                               last_move_time = current_time + initial_move_delay  # Adding initial delay for the first move
                     
                     # Stop continuous movement if buttons aren't being pressed
@@ -1049,19 +966,20 @@ class Tetris:
                
                # Update and draw
                self.clear_rows()
-               self.draw_window()
-               self.draw_gameloop()
+               self.draw_frames()
+               self.draw_playframe_lines()
                self.draw_tetromino()
-               self.ghost_piece()
+               self.draw_gameloop()
+               self.draw_ghost_piece()
                
                # Place tetromino if tetromino reached the bottom or if there's a collision with another tetromino in the y axis
-               if self.check_collision_y():
+               if self.check_collision(dy=1):
                     self.place_tetromino()
                     holdable = True
 
                     # Reset tetromino position and get a new one
-                    self.x = cfg.PLAYFIELD_FRAME.element.left
-                    self.y = cfg.PLAYFIELD_FRAME.element.top
+                    self.grid_x = 2
+                    self.grid_y = -1
                     self.rotation = 0
                     self.tetromino = self.next_tetromino
                     self.next_tetromino = self.get_tetromino()
