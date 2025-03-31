@@ -5,26 +5,28 @@ import sys
 import json
 
 from button import Button
-import databases
+import databases as db
 import config as cfg
 
 # Full path of your background image file (optional)
-background_image_file = r"C:\Users\PC\Desktop\XDXD.jpg"
+# Supported formats: png, jpeg, bmp, tga, gif (non-animated), ppm, xpm
+background_image_file = r"YOUR_BACKGROUND_IMAGE_FILE.png"  # Change this to your image file name, png is recommended
 
 check_if_background_image_exists = os.path.exists(background_image_file)
 
 if check_if_background_image_exists:
-     BACKGROUND_IMAGE = pygame.image.load(os.path.join(databases.script_dir, background_image_file))
+     BACKGROUND_IMAGE = pygame.image.load(os.path.join(db.script_dir, background_image_file))
      BACKGROUND = pygame.transform.scale(BACKGROUND_IMAGE, (cfg.RESOLUTION_DISPLAY["width"], cfg.RESOLUTION_DISPLAY["height"]))
 
 tetrominos = [cfg.I, cfg.J, cfg.L, cfg.O, cfg.S, cfg.T, cfg.Z]
 tetromino_colors = [cfg.LIGHT_BLUE, cfg.DARK_BLUE,cfg.ORANGE, cfg.YELLOW, cfg.GREEN, cfg.PURPLE, cfg.RED]
-current_keys = databases.keys
-current_scores = databases.scores
 starting_level = 1
 
 class Tetris:
      def __init__(self):
+          self.options = db.options
+          self.current_keys = self.options["keys"]
+          self.current_scores = db.scores
           self.reset_game()
 
      def reset_game(self, level=1):
@@ -36,7 +38,7 @@ class Tetris:
           self.bag = tetrominos.copy()
           self.tetromino = self.get_tetromino()
           self.next_tetromino = self.get_tetromino()
-          self.hold_tetromino = [[]]
+          self.hold_tetromino = None
           self.score = 0
           self.level = level
           self.lines = 0
@@ -61,7 +63,7 @@ class Tetris:
           
           # Draw next tetromino frame
           pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.NEXT_FRAME.element, width=1)
-          next_text = cfg.font.render("NEXT", True, cfg.WHITE)
+          next_text = cfg.FONT.render("NEXT", True, cfg.WHITE)
           next_rect = next_text.get_rect()
           next_rect.centerx = cfg.NEXT_FRAME.element.centerx
           next_rect.y = cfg.NEXT_FRAME.element.y + cfg.CELL_EDGE # Small increment so the text isn't directly on the border of the rectangle
@@ -69,7 +71,7 @@ class Tetris:
           
           # Draw hold frame
           pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.HOLD_FRAME.element, width=1)
-          hold_text = cfg.font.render("HOLD", True, cfg.WHITE)
+          hold_text = cfg.FONT.render("HOLD", True, cfg.WHITE)
           hold_rect = hold_text.get_rect()
           hold_rect.centerx = cfg.HOLD_FRAME.element.centerx
           hold_rect.y = cfg.HOLD_FRAME.element.y + cfg.CELL_EDGE
@@ -77,9 +79,9 @@ class Tetris:
           
           # Draw score frame
           pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.SCORE_FRAME.element, width=1)
-          score_text = cfg.font.render("SCORE", True, cfg.WHITE)
-          level_text = cfg.font.render("LEVEL", True, cfg.WHITE)
-          lines_text = cfg.font.render("LINES", True, cfg.WHITE)
+          score_text = cfg.FONT.render("SCORE", True, cfg.WHITE)
+          level_text = cfg.FONT.render("LEVEL", True, cfg.WHITE)
+          lines_text = cfg.FONT.render("LINES", True, cfg.WHITE)
           
           score_text_rect = score_text.get_rect()
           level_text_rect = level_text.get_rect()
@@ -101,6 +103,8 @@ class Tetris:
                tetromino = self.next_tetromino
           elif frame == cfg.HOLD_FRAME:
                tetromino = self.hold_tetromino
+          if not tetromino:
+               return
 
           # Find height (count of rows with at least one '0')
           tetromino_height = sum(1 for row in tetromino[0] if "0" in row) * cfg.CELL_EDGE
@@ -153,9 +157,9 @@ class Tetris:
      
      def draw_score_screen(self):
           # Draw corresponding numbers in score screen
-          score_number = cfg.font.render(str(self.score), True, cfg.WHITE)
-          level_number = cfg.font.render(str(self.level), True, cfg.WHITE)
-          lines_number = cfg.font.render(str(self.lines), True, cfg.WHITE)
+          score_number = cfg.FONT.render(str(self.score), True, cfg.WHITE)
+          level_number = cfg.FONT.render(str(self.level), True, cfg.WHITE)
+          lines_number = cfg.FONT.render(str(self.lines), True, cfg.WHITE)
           
           score_number_rect = score_number.get_rect()
           level_number_rect = level_number.get_rect()
@@ -234,7 +238,6 @@ class Tetris:
                          
                          # Place tetromino on the board
                          self.board[grid_y][grid_x] = tetrominos.index(self.tetromino) + 1
-          pygame.time.delay(10) # Added a small delay to remove any accidental inputs like 2 tetrominos hard dropping at the same time (i don't know if this actually works, might need to change later)
           
      def check_collision(self, dx=0, dy=0, grid_y=None, rotation=None):
           if self.tetromino == cfg.O:
@@ -308,6 +311,9 @@ class Tetris:
                self.score += 2
           self.place_tetromino()
           
+          # TODO: CONFIRM IF THIS WORKS
+          pygame.time.delay(10) # Added a small delay to remove any accidental inputs like 2 tetrominos hard dropping at the same time (i don't know if this actually works, might need to change later)
+          
           # Reset tetromino position and get a new one
           self.grid_x = 2
           self.grid_y = -1
@@ -332,38 +338,39 @@ class Tetris:
                9: 11,
                11: 1
                }
+          
+          high_scores_rect = pygame.Rect(0, 0, cfg.CELL_EDGE * 6, cfg.CELL_EDGE * 6)
+          high_scores_rect.center = cfg.RESOLUTION_DISPLAY["width"] // 2, cfg.RESOLUTION_DISPLAY["height"] // 2
+          high_scores_text = cfg.FONT.render("HIGH SCORES", True, cfg.WHITE)
+          high_scores_text_rect = high_scores_text.get_rect()
+          high_scores_text_rect.centerx = high_scores_rect.centerx
+          high_scores_text_rect.top = high_scores_rect.top + cfg.USER_CHOICE_SCALE # Small increment so the text doesn't touch the top of the rectangle
 
           while main_menu_bool:
                self.draw_frames()
                pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.PLAYFIELD_FRAME.element, width=1)
-               high_scores_rect = pygame.Rect(0, 0, cfg.CELL_EDGE * 6, cfg.CELL_EDGE * 6)
-               high_scores_rect.center = cfg.RESOLUTION_DISPLAY["width"] // 2, cfg.RESOLUTION_DISPLAY["height"] // 2
-               high_scores_text = cfg.font.render("HIGH SCORES", True, cfg.WHITE)
-               high_scores_text_rect = high_scores_text.get_rect()
-               high_scores_text_rect.centerx = high_scores_rect.centerx
-               high_scores_text_rect.top = high_scores_rect.top + cfg.USER_CHOICE_SCALE # Small increment so the text doesn't touch the top of the rectangle
                pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, high_scores_rect, width=1)
                cfg.WINDOW.blit(high_scores_text, high_scores_text_rect)
                
-               for i, score in enumerate(current_scores):
+               for i, score in enumerate(self.current_scores):
                     # Drawing the initials
-                    initial_to_draw = cfg.font.render(score[0], True, cfg.WHITE)
+                    initial_to_draw = cfg.FONT.render(score[0], True, cfg.WHITE)
                     initial_to_draw_rect = pygame.Rect(0, 0, cfg.CELL_EDGE * 2, cfg.CELL_EDGE)
                     initial_to_draw_rect.left = high_scores_rect.left + cfg.USER_CHOICE_SCALE
                     initial_to_draw_rect.top = high_scores_rect.top + cfg.CELL_EDGE * (i + 1)
                     cfg.WINDOW.blit(initial_to_draw, initial_to_draw_rect)
                     
                     # Drawing the scores
-                    score_to_draw = cfg.font.render(str(score[1]), True, cfg.WHITE)
+                    score_to_draw = cfg.FONT.render(str(score[1]), True, cfg.WHITE)
                     score_to_draw_rect = score_to_draw.get_rect()
                     score_to_draw_rect.right = high_scores_rect.right - cfg.USER_CHOICE_SCALE
                     score_to_draw_rect.top = high_scores_rect.top + cfg.CELL_EDGE * (i + 1)
                     cfg.WINDOW.blit(score_to_draw, score_to_draw_rect)
                
-               play_button = Button("PLAY", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.GREEN, cfg.DARK_GREEN))
-               level_button = Button(f"LEVEL: {starting_level}", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.GREY, cfg.DARK_GREY))
-               options_button = Button("OPTIONS", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.GREY, cfg.DARK_GREY))
-               quit_button = Button("QUIT", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.GREY, cfg.DARK_GREY))
+               play_button = Button("PLAY", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREEN, cfg.DARK_GREEN))
+               level_button = Button(f"LEVEL: {starting_level}", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREY, cfg.DARK_GREY))
+               options_button = Button("OPTIONS", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREY, cfg.DARK_GREY))
+               quit_button = Button("QUIT", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREY, cfg.DARK_GREY))
                
                play_button.center(cfg.RESOLUTION_DISPLAY["width"], (cfg.PLAYFIELD_FRAME.element.top + high_scores_rect.top) - cfg.CELL_EDGE * 2)
                level_button.center(cfg.RESOLUTION_DISPLAY["width"], (cfg.PLAYFIELD_FRAME.element.top + high_scores_rect.top) + cfg.CELL_EDGE * 2)
@@ -388,17 +395,24 @@ class Tetris:
                          elif level_button.is_clicked(event):
                               starting_level = starting_levels_dict[self.level]
                               self.reset_game(starting_level)
+                         elif quit_button.is_clicked(event):
+                              pygame.quit()
+                              sys.exit()
+                    elif event.type == pygame.KEYDOWN:
+                         if event.key == pygame.K_ESCAPE:
+                              pygame.quit()
+                              sys.exit()
                pygame.display.update()
      
      def display_pause_screen(self):
-          pause_text = cfg.font.render("PAUSED", True, cfg.WHITE)
+          pause_text = cfg.FONT.render("PAUSED", True, cfg.WHITE)
           pause_text_rect = pause_text.get_rect()
           pause_text_rect.top = cfg.CELL_EDGE
           pause_text_rect.centerx = cfg.PAUSE_OVERLAY.width // 2
           
-          resume_button = Button("RESUME", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.GREEN, cfg.DARK_GREEN), cfg.PAUSE_OVERLAY.rect)
-          options_button = Button("OPTIONS", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.PAUSE_OVERLAY.rect)
-          quit_button = Button("QUIT", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.PAUSE_OVERLAY.rect)
+          resume_button = Button("RESUME", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREEN, cfg.DARK_GREEN), cfg.PAUSE_OVERLAY.rect)
+          options_button = Button("OPTIONS", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.PAUSE_OVERLAY.rect)
+          quit_button = Button("QUIT", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.PAUSE_OVERLAY.rect)
           resume_button.center(cfg.PAUSE_OVERLAY.width, cfg.PAUSE_OVERLAY.height // 2)
           options_button.center(cfg.PAUSE_OVERLAY.width, cfg.PAUSE_OVERLAY.height)
           quit_button.center(cfg.PAUSE_OVERLAY.width, 3 * cfg.PAUSE_OVERLAY.height // 2)
@@ -436,13 +450,13 @@ class Tetris:
                pygame.display.update()
      
      def display_options_screen(self, screen):
-          options_text = cfg.font.render("OPTIONS", True, cfg.WHITE)
+          options_text = cfg.FONT.render("OPTIONS", True, cfg.WHITE)
           options_text_rect = options_text.get_rect()
           options_text_rect.top = cfg.CELL_EDGE
           options_text_rect.centerx = cfg.OPTIONS_OVERLAY.width // 2
           
-          key_mapping_button = Button("KEY MAPPING", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.GREY, cfg.DARK_GREY), cfg.OPTIONS_OVERLAY.rect)
-          resolutions_button = Button("RESOLUTIONS", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.GREY, cfg.DARK_GREY), cfg.OPTIONS_OVERLAY.rect)
+          key_mapping_button = Button("KEY MAPPING", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREY, cfg.DARK_GREY), cfg.OPTIONS_OVERLAY.rect)
+          resolutions_button = Button("RESOLUTIONS", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREY, cfg.DARK_GREY), cfg.OPTIONS_OVERLAY.rect)
           key_mapping_button.center(cfg.OPTIONS_OVERLAY.width, 2 * cfg.OPTIONS_OVERLAY.height // 3)
           resolutions_button.center(cfg.OPTIONS_OVERLAY.width, 4 * cfg.OPTIONS_OVERLAY.height // 3)
           
@@ -451,9 +465,7 @@ class Tetris:
           while options_screen_bool:
                self.draw_frames()
                if screen == "pause screen":
-                    self.draw_playframe_lines()
-                    self.draw_tetromino()
-                    self.ghost_piece(display_update=False)
+                    self.draw_gameloop()
 
                cfg.OPTIONS_OVERLAY.draw(cfg.WINDOW)
                cfg.OPTIONS_OVERLAY.element.fill(cfg.BLACK)
@@ -470,7 +482,6 @@ class Tetris:
                          if event.key == pygame.K_ESCAPE:
                               options_screen_bool = False
                               if screen == "main menu":
-                                   print("wtff")
                                    self.main_menu()
                               elif screen == "pause screen":
                                    self.display_pause_screen()
@@ -489,21 +500,19 @@ class Tetris:
           while changing_key:
                self.draw_frames()
                if screen == "pause screen":
-                    self.draw_playframe_lines()
-                    self.draw_tetromino()
-                    self.ghost_piece(display_update=False)
+                    self.draw_gameloop()
                     
                pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.PLAYFIELD_FRAME.element, width=1)
                cfg.KEYBIND_OVERLAY.draw(cfg.WINDOW)
                cfg.KEYBIND_OVERLAY.element.fill(cfg.BLACK)
                pygame.draw.rect(cfg.KEYBIND_OVERLAY.element, cfg.LIGHT_GREY, cfg.KEYBIND_OVERLAY.element.get_rect(), 5)
                
-               new_key_text = cfg.font.render("PRESS A NEW KEY FOR:", True, cfg.WHITE)
+               new_key_text = cfg.FONT.render("PRESS A NEW KEY FOR:", True, cfg.WHITE)
                new_key_text_rect = new_key_text.get_rect()
                new_key_text_rect.top = cfg.KEYBIND_OVERLAY.height // 2 - cfg.CELL_EDGE
                new_key_text_rect.centerx = cfg.KEYBIND_OVERLAY.width // 2
                
-               keybind_text = cfg.font.render(str(action).upper(), True, cfg.WHITE)
+               keybind_text = cfg.FONT.render(str(action).upper(), True, cfg.WHITE)
                keybind_text_rect = keybind_text.get_rect()
                keybind_text_rect.top = cfg.KEYBIND_OVERLAY.height // 2
                keybind_text_rect.centerx = cfg.KEYBIND_OVERLAY.width // 2
@@ -520,18 +529,18 @@ class Tetris:
                               changing_key = False
                               self.display_key_mapping_screen(screen)
                          else:
-                              current_keys[action] = event.key
+                              self.options["keys"][action] = event.key
                               changing_key = False
                          
                               # If keybind is the same as another action, that action will be left blank
-                              for key, value in current_keys.items():
-                                   if key != action and value == current_keys[action]:
-                                        current_keys[key] = 0
+                              for key, value in self.options["keys"].items():
+                                   if key != action and value == self.options["keys"][action]:
+                                        self.options["keys"][key] = 0
+                              self.current_keys = self.options["keys"]
                               
                               # Updating the options file with the new change
-                              json_data = json.dumps(current_keys, indent=4)
-                              with open(databases.options_file, "w") as file:
-                                   file.write(json_data)
+                              with open(db.options_file, "w") as file:
+                                   json.dump(self.options, file, indent=4)
                               self.display_key_mapping_screen(screen)
                pygame.display.update()
      
@@ -541,13 +550,11 @@ class Tetris:
           while reset_key_mapping_bool:
                self.draw_frames()
                if screen == "pause screen":
-                    self.draw_playframe_lines()
-                    self.draw_tetromino()
-                    self.ghost_piece(display_update=False)
+                    self.draw_gameloop()
                
                pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.PLAYFIELD_FRAME.element, width=1)
                
-               reset_key_mapping_text = cfg.font.render("RESET KEY MAPPING?", True, cfg.WHITE)
+               reset_key_mapping_text = cfg.FONT.render("RESET KEY MAPPING?", True, cfg.WHITE)
                reset_key_mapping_text_rect = reset_key_mapping_text.get_rect()
                reset_key_mapping_text_rect.centerx = cfg.RESET_KEY_MAPPING_OVERLAY.width // 2
                reset_key_mapping_text_rect.top = cfg.CELL_EDGE
@@ -556,8 +563,8 @@ class Tetris:
                pygame.draw.rect(cfg.RESET_KEY_MAPPING_OVERLAY.element, cfg.LIGHT_GREY, cfg.RESET_KEY_MAPPING_OVERLAY.element.get_rect(), 5)
                cfg.RESET_KEY_MAPPING_OVERLAY.element.blit(reset_key_mapping_text, reset_key_mapping_text_rect)
                
-               ok_button = Button("OK", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.RESET_KEY_MAPPING_OVERLAY.rect)
-               cancel_button = Button("CANCEL", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.RESET_KEY_MAPPING_OVERLAY.rect)
+               ok_button = Button("OK", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.RESET_KEY_MAPPING_OVERLAY.rect)
+               cancel_button = Button("CANCEL", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.RESET_KEY_MAPPING_OVERLAY.rect)
                
                ok_button.center(cfg.RESET_KEY_MAPPING_OVERLAY.width, cfg.RESET_KEY_MAPPING_OVERLAY.height - cfg.CELL_EDGE * 2)
                cancel_button.center(cfg.RESET_KEY_MAPPING_OVERLAY.width, cfg.RESET_KEY_MAPPING_OVERLAY.height + cfg.CELL_EDGE * 2)
@@ -575,12 +582,10 @@ class Tetris:
                               self.display_key_mapping_screen(screen)
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                          if ok_button.is_clicked(event):
-                              global current_keys
-                              current_keys = databases.default_keys.copy()
-                              if os.path.exists(databases.options_file):
-                                   os.remove(databases.options_file)
-                              with open(databases.options_file, "w") as file:
-                                   json.dump(current_keys, file, indent=4)
+                              self.options["keys"] = db.default_options["keys"]
+                              self.current_keys = self.options["keys"]
+                              with open(db.options_file, "w") as file:
+                                   json.dump(self.options, file, indent=4)
                               reset_key_mapping_bool = False
                               self.display_key_mapping_screen(screen)
                               
@@ -590,27 +595,27 @@ class Tetris:
                pygame.display.update()
      
      def display_key_mapping_screen(self, screen):
-          key_mapping_text = cfg.font.render("KEY MAPPING", True, cfg.WHITE)  
+          key_mapping_text = cfg.FONT.render("KEY MAPPING", True, cfg.WHITE)  
           key_mapping_text_rect = key_mapping_text.get_rect()
           key_mapping_text_rect.top = cfg.CELL_EDGE // 2
           key_mapping_text_rect.centerx = cfg.KEY_MAPPING_OVERLAY.width // 2
           
-          key_names = [key for key in databases.keys.keys()]
+          key_names = [key for key in self.options["keys"].keys()]
           key_texts = []
           key_buttons = []
           
           for i, key in enumerate(key_names):
-               key_text = cfg.font.render(key, True, cfg.WHITE)
+               key_text = cfg.FONT.render(key, True, cfg.WHITE)
                key_text_rect = key_text.get_rect()
                key_text_rect.top = (cfg.KEY_MAPPING_OVERLAY.height // (len(key_names) + 1) * (i + 1)) - (cfg.CELL_EDGE // 2)
                key_text_rect.left = cfg.CELL_EDGE
                key_texts.append((key_text, key_text_rect))
                
-               key_button = Button(pygame.key.name(current_keys[key]).upper(), (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.KEY_MAPPING_OVERLAY.rect)
+               key_button = Button(pygame.key.name(self.options["keys"][key]).upper(), (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.KEY_MAPPING_OVERLAY.rect)
                key_button.center(3 * cfg.KEY_MAPPING_OVERLAY.width // 2, 2 * ((cfg.KEY_MAPPING_OVERLAY.height // (len(key_names) + 1) * (i + 1)) - (cfg.CELL_EDGE // 2) + cfg.CELL_EDGE // 3))
                key_buttons.append(key_button)
           
-          reset_to_defaults_button = Button("RESET TO DEFAULTS", (8 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.GREY, cfg.DARK_GREY), cfg.KEY_MAPPING_OVERLAY.rect)
+          reset_to_defaults_button = Button("RESET TO DEFAULTS", (8 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREY, cfg.DARK_GREY), cfg.KEY_MAPPING_OVERLAY.rect)
           reset_to_defaults_button.center(cfg.KEY_MAPPING_OVERLAY.width, (cfg.KEY_MAPPING_OVERLAY.height - cfg.CELL_EDGE) * 2)
 
           waiting_for_input = True
@@ -647,7 +652,7 @@ class Tetris:
                pygame.display.update()
      
      def display_resolutions_screen(self, screen):
-          resolutions_text = cfg.font.render("RESOLUTIONS", True, cfg.WHITE)
+          resolutions_text = cfg.FONT.render("RESOLUTIONS", True, cfg.WHITE)
           resolutions_text_rect = resolutions_text.get_rect()
           resolutions_text_rect.top = cfg.CELL_EDGE // 2
           resolutions_text_rect.centerx = cfg.RESOLUTIONS_OVERLAY.width // 2
@@ -656,7 +661,7 @@ class Tetris:
           resolution_buttons_list = []
           
           for i, (width, height) in enumerate(resolutions_list):
-               resolution_button = Button(f"{width}x{height}", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.RESOLUTIONS_OVERLAY.rect)
+               resolution_button = Button(f"{width}x{height}", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.RESOLUTIONS_OVERLAY.rect)
                resolution_button.center(cfg.RESOLUTIONS_OVERLAY.width, 2 * ((cfg.RESOLUTIONS_OVERLAY.height // (len(resolutions_list) + 1) * (i + 1) + (cfg.CELL_EDGE // 2))))
                resolution_buttons_list.append(resolution_button)
           
@@ -664,9 +669,7 @@ class Tetris:
           while resolutions_screen_bool:
                self.draw_frames()
                if screen == "pause screen":
-                    self.draw_playframe_lines()
-                    self.draw_tetromino()
-                    self.ghost_piece(display_update=False)
+                    self.draw_gameloop()
                cfg.RESOLUTIONS_OVERLAY.draw(cfg.WINDOW)
                cfg.RESOLUTIONS_OVERLAY.element.fill(cfg.BLACK)
                pygame.draw.rect(cfg.RESOLUTIONS_OVERLAY.element, cfg.LIGHT_GREY, cfg.RESOLUTIONS_OVERLAY.element.get_rect(), 5)
@@ -691,30 +694,58 @@ class Tetris:
                pygame.display.update()
           
      def display_keep_changes_screen(self, index, screen):
-          cfg.update_resolution(index)
-          if check_if_background_image_exists:
-               global BACKGROUND
-               BACKGROUND = pygame.transform.scale(BACKGROUND_IMAGE, (cfg.RESOLUTION_DISPLAY["width"], cfg.RESOLUTION_DISPLAY["height"]))
-               cfg.WINDOW.blit(BACKGROUND, (0, 0))
-
-          for overlay in cfg.OVERLAYS:
-               overlay.update(cfg.CELL_EDGE)
+          previous_resolution_scale_index = cfg.USER_CHOICE_SCALE
           
-          for frame in cfg.FRAMES:
-               frame.update(cfg.CELL_EDGE)
+          def update_resolution(scale_index):
+               global BACKGROUND
+               cfg.update_resolution(scale_index)
+               if check_if_background_image_exists:
+                    BACKGROUND = pygame.transform.scale(BACKGROUND_IMAGE, (cfg.RESOLUTION_DISPLAY["width"], cfg.RESOLUTION_DISPLAY["height"]))
+                    cfg.WINDOW.blit(BACKGROUND, (0, 0))
+               for overlay in cfg.OVERLAYS:
+                    overlay.update(cfg.CELL_EDGE)
+               for frame in cfg.FRAMES:
+                    frame.update(cfg.CELL_EDGE)
+                    
+          update_resolution(index)
+               
+          ok_button = Button("OK", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREEN, cfg.DARK_GREEN), cfg.KEEP_CHANGES_OVERLAY.rect)
+          cancel_button = Button("CANCEL", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.KEEP_CHANGES_OVERLAY.rect)
+          ok_button.center(cfg.KEEP_CHANGES_OVERLAY.width, 2 * (cfg.KEEP_CHANGES_OVERLAY.height - cfg.CELL_EDGE * 2) - cfg.CELL_EDGE)
+          cancel_button.center(cfg.KEEP_CHANGES_OVERLAY.width, 2 * (cfg.KEEP_CHANGES_OVERLAY.height - cfg.CELL_EDGE))
+          
+          keep_changes_text = cfg.FONT.render("KEEP CHANGES?", True, cfg.WHITE)
+          keep_changes_text_rect = keep_changes_text.get_rect()
+          keep_changes_text_rect.top = cfg.CELL_EDGE
+          keep_changes_text_rect.centerx = cfg.KEEP_CHANGES_OVERLAY.width // 2
      
           keep_changes_bool = True
+          countdown_time = 11000
+          countdown_start = pygame.time.get_ticks()
           while keep_changes_bool:
                self.draw_frames()
                if screen == "pause screen":
-                    self.draw_playframe_lines()
-                    self.draw_tetromino()
-                    self.ghost_piece(display_update=False)
+                    self.draw_gameloop()
                
                cfg.KEEP_CHANGES_OVERLAY.draw(cfg.WINDOW)
                cfg.KEEP_CHANGES_OVERLAY.element.fill(cfg.BLACK)
                pygame.draw.rect(cfg.KEEP_CHANGES_OVERLAY.element, cfg.LIGHT_GREY, cfg.KEEP_CHANGES_OVERLAY.element.get_rect(), 5)
+               cfg.KEEP_CHANGES_OVERLAY.element.blit(keep_changes_text, keep_changes_text_rect)
+               elapsed_time = pygame.time.get_ticks() - countdown_start
+               remaining_time = max(0, (countdown_time - elapsed_time) // 1000)
+               countdown_text = cfg.FONT.render(f"{remaining_time}", True, cfg.WHITE)
+               countdown_text_rect = countdown_text.get_rect()
+               countdown_text_rect.centerx = cfg.KEEP_CHANGES_OVERLAY.width // 2
+               countdown_text_rect.centery = cfg.KEEP_CHANGES_OVERLAY.height // 2 - cfg.CELL_EDGE
+               cfg.KEEP_CHANGES_OVERLAY.element.blit(countdown_text, countdown_text_rect)
                
+               ok_button.draw(cfg.KEEP_CHANGES_OVERLAY.element)
+               cancel_button.draw(cfg.KEEP_CHANGES_OVERLAY.element)
+               
+               if elapsed_time >= countdown_time:
+                    keep_changes_bool = False
+                    update_resolution(previous_resolution_scale_index)
+                    self.display_resolutions_screen(screen)
                
                for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -723,52 +754,74 @@ class Tetris:
                     elif event.type == pygame.KEYDOWN:
                          if event.key == pygame.K_ESCAPE:
                               keep_changes_bool = False
+                              update_resolution(previous_resolution_scale_index)
+                              self.display_resolutions_screen(screen)
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                         if ok_button.is_clicked(event):
+                              keep_changes_bool = False
+                              self.options["resolution_scale_index"] = index
+                              with open(db.options_file, "w") as file:
+                                   json.dump(self.options, file, indent=4)
+                              self.display_resolutions_screen(screen)
+                         elif cancel_button.is_clicked(event):
+                              keep_changes_bool = False
+                              update_resolution(previous_resolution_scale_index)
                               self.display_resolutions_screen(screen)
                pygame.display.update()
      
      def draw_text(self, text, font, color, surface):
           textobj = font.render(text, True, color)
           textrect = textobj.get_rect()
-          textrect.center = (cfg.GAME_OVER_OVERLAY.width // 2, 90)
+          textrect.center = (cfg.GAME_OVER_OVERLAY.width // 2, cfg.GAME_OVER_OVERLAY.height // 2)
           surface.element.blit(textobj, textrect)
      
      def game_over_screen(self):
-          global current_scores
           game_over_bool = True
-          score_values = [databases.scores[i][1] for i in range(len(current_scores))]
+          score_values = [db.scores[i][1] for i in range(len(self.current_scores))]
           lowest_score = min(score_values)
           
           # Variables used when there is no new score
-          game_over_text = cfg.font.render("GAME OVER", True, cfg.WHITE)
-          high_scores_text = cfg.font.render("HIGH SCORES", True, cfg.WHITE)
+          high_scores_rect = pygame.Rect(0, 0, cfg.CELL_EDGE * 6, cfg.CELL_EDGE * 6)
+          high_scores_rect.center = cfg.GAME_OVER_OVERLAY.width // 2, cfg.GAME_OVER_OVERLAY.height // 2
           
-          main_menu_button = Button("MAIN MENU", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.LIGHT_GREY, cfg.DARK_GREY))
-          play_again_button = Button("PLAY AGAIN", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.GREEN, cfg.DARK_GREEN))
+          game_over_text = cfg.FONT.render("GAME OVER", True, cfg.WHITE)
+          game_over_text_rect = game_over_text.get_rect()
+          game_over_text_rect.centerx = cfg.GAME_OVER_OVERLAY.width // 2
+          game_over_text_rect.centery = high_scores_rect.top // 2
           
-          main_menu_button.center(cfg.RESOLUTION_DISPLAY["width"], cfg.RESOLUTION_DISPLAY["height"] + 5 * cfg.CELL_EDGE)
-          play_again_button.center(cfg.RESOLUTION_DISPLAY["width"], cfg.RESOLUTION_DISPLAY["height"] + 9 * cfg.CELL_EDGE)
-               
-          game_over_text_rect = game_over_text.get_rect(center=(cfg.GAME_OVER_OVERLAY.width // 2, 15))
-          high_scores_text_rect = high_scores_text.get_rect(center=(cfg.GAME_OVER_OVERLAY.width // 2, 40))
+          high_scores_text = cfg.FONT.render("HIGH SCORES", True, cfg.WHITE)
+          high_scores_text_rect = high_scores_text.get_rect()
+          high_scores_text_rect.centerx = high_scores_rect.centerx
+          high_scores_text_rect.top = high_scores_rect.top + cfg.USER_CHOICE_SCALE
+          
+          play_again_button = Button("PLAY AGAIN", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREEN, cfg.DARK_GREEN), cfg.GAME_OVER_OVERLAY.rect)
+          play_again_button.center(cfg.GAME_OVER_OVERLAY.width, 2 * (high_scores_rect.bottom + cfg.CELL_EDGE) - cfg.CELL_EDGE // 2)
+          main_menu_button = Button("MAIN MENU", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.GAME_OVER_OVERLAY.rect)
+          main_menu_button.center(cfg.GAME_OVER_OVERLAY.width, 2 * (high_scores_rect.bottom + cfg.CELL_EDGE * 2))
           
           # Variables used when there is new score
           user_input = ""
           max_initials_length = 3
           
-          new_high_score_text = cfg.font.render("NEW HIGH SCORE!", True, cfg.WHITE)
-          enter_initials_text = cfg.font.render("ENTER YOUR INITIALS:", True, cfg.WHITE)
+          new_high_score_text = cfg.FONT.render("NEW HIGH SCORE!", True, cfg.WHITE)
+          new_high_score_text_rect = new_high_score_text.get_rect()
+          new_high_score_text_rect.centerx = cfg.GAME_OVER_OVERLAY.width // 2
+          new_high_score_text_rect.top = cfg.CELL_EDGE
           
-          ok_button = Button("OK", (2 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.font, (cfg.LIGHT_GREY, cfg.DARK_GREY))
-          ok_button.center(cfg.RESOLUTION_DISPLAY["width"], cfg.RESOLUTION_DISPLAY["height"] + 5 * cfg.CELL_EDGE)
+          enter_initials_text = cfg.FONT.render("ENTER YOUR INITIALS:", True, cfg.WHITE)
+          enter_initials_text_rect = enter_initials_text.get_rect()
+          enter_initials_text_rect.centerx = cfg.GAME_OVER_OVERLAY.width // 2
+          enter_initials_text_rect.top = cfg.GAME_OVER_OVERLAY.height // 2 - cfg.CELL_EDGE * 2
           
-          new_high_score_text_rect = new_high_score_text.get_rect(center=(cfg.GAME_OVER_OVERLAY.width // 2, 15))
-          enter_initials_text_rect = enter_initials_text.get_rect(center=(cfg.GAME_OVER_OVERLAY.width // 2, 65))
-          
+          ok_button = Button("OK", (2 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.GAME_OVER_OVERLAY.rect)
+          ok_button.center(cfg.GAME_OVER_OVERLAY.width, cfg.GAME_OVER_OVERLAY.height + cfg.CELL_EDGE * 6)
                
           if self.score >= lowest_score:
                new_score = self.score
-               score_number_text = cfg.font.render(str(new_score), True, cfg.WHITE)
-               score_number_text_rect = score_number_text.get_rect(center=(cfg.GAME_OVER_OVERLAY.width // 2, 40))
+               score_number_text = cfg.FONT.render(str(new_score), True, cfg.WHITE)
+               score_number_text_rect = score_number_text.get_rect()
+               score_number_text_rect.centerx = cfg.GAME_OVER_OVERLAY.width // 2
+               score_number_text_rect.top = cfg.CELL_EDGE * 2
           else:
                new_score = False
           
@@ -777,34 +830,35 @@ class Tetris:
                cfg.GAME_OVER_OVERLAY.element.fill(cfg.BLACK)
                pygame.draw.rect(cfg.GAME_OVER_OVERLAY.element, cfg.LIGHT_GREY, cfg.GAME_OVER_OVERLAY.element.get_rect(), 5)
                if not new_score:
-                    high_scores_rect = pygame.Rect(60, 30, 120, 120)
                     pygame.draw.rect(cfg.GAME_OVER_OVERLAY.element, cfg.LIGHT_GREY, high_scores_rect, width=1)
-                    
                     
                     cfg.GAME_OVER_OVERLAY.element.blit(game_over_text, game_over_text_rect)
                     cfg.GAME_OVER_OVERLAY.element.blit(high_scores_text, high_scores_text_rect)
-                    for i, score in enumerate(current_scores):
+                    for i, score in enumerate(self.current_scores):
                          # Drawing the initials
-                         initial_to_draw = cfg.font.render(score[0], True, cfg.WHITE)
-                         initial_to_draw_rect = pygame.Rect(high_scores_rect.left + 5, 50 + i * cfg.CELL_EDGE, 4 * cfg.CELL_EDGE, cfg.CELL_EDGE)
+                         initial_to_draw = cfg.FONT.render(score[0], True, cfg.WHITE)
+                         initial_to_draw_rect = pygame.Rect(0, 0, cfg.CELL_EDGE * 2, cfg.CELL_EDGE)
+                         initial_to_draw_rect.left = high_scores_rect.left + cfg.USER_CHOICE_SCALE
+                         initial_to_draw_rect.top = high_scores_rect.top + cfg.CELL_EDGE * (i + 1)
                          cfg.GAME_OVER_OVERLAY.element.blit(initial_to_draw, initial_to_draw_rect)
                          
                          # Drawing the scores
-                         score_to_draw = cfg.font.render(str(score[1]), True, cfg.WHITE)
-                         score_to_draw_rect = pygame.Rect(high_scores_rect.right - score_to_draw.get_width() - 5, 50 + i * cfg.CELL_EDGE, 4 * cfg.CELL_EDGE, cfg.CELL_EDGE)
+                         score_to_draw = cfg.FONT.render(str(score[1]), True, cfg.WHITE)
+                         score_to_draw_rect = score_to_draw.get_rect()
+                         score_to_draw_rect.right = high_scores_rect.right - cfg.USER_CHOICE_SCALE
+                         score_to_draw_rect.top = high_scores_rect.top + cfg.CELL_EDGE * (i + 1)
                          cfg.GAME_OVER_OVERLAY.element.blit(score_to_draw, score_to_draw_rect)
                          
                          # Drawing the buttons
-                         main_menu_button.draw(cfg.WINDOW)
-                         play_again_button.draw(cfg.WINDOW)
+                         main_menu_button.draw(cfg.GAME_OVER_OVERLAY.element)
+                         play_again_button.draw(cfg.GAME_OVER_OVERLAY.element)
                else:
                     cfg.GAME_OVER_OVERLAY.element.blit(new_high_score_text, new_high_score_text_rect)
                     cfg.GAME_OVER_OVERLAY.element.blit(score_number_text, score_number_text_rect)
                     cfg.GAME_OVER_OVERLAY.element.blit(enter_initials_text, enter_initials_text_rect)
-                    self.draw_text(f"{user_input}", cfg.font, cfg.WHITE, cfg.GAME_OVER_OVERLAY)
-                    ok_button.draw(cfg.WINDOW)
+                    self.draw_text(f"{user_input}", cfg.FONT, cfg.WHITE, cfg.GAME_OVER_OVERLAY)
+                    ok_button.draw(cfg.GAME_OVER_OVERLAY.element)
                     
-               
                for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                          pygame.quit()
@@ -813,12 +867,15 @@ class Tetris:
                          if new_score:
                               if ok_button.is_clicked(event):
                                    # Save initial and score
-                                   databases.scores.append([user_input, new_score])
-                                   databases.scores.sort(key=lambda x: x[1], reverse=True)
-                                   current_scores = databases.scores[:5]
-                                   with open(databases.score_file, 'w') as file:
-                                        json.dump(current_scores, file, indent=4)
+                                   db.scores.append([user_input, new_score])
+                                   db.scores.sort(key=lambda x: x[1], reverse=True)
+                                   self.current_scores = db.scores[:5]
+                                   with open(db.score_file, 'w') as file:
+                                        json.dump(self.current_scores, file, indent=4)
+                                   game_over_bool = False
                                    new_score = False
+                                   self.main_menu()
+                                   self.reset_game(starting_level)
                          else:
                               if main_menu_button.is_clicked(event):
                                    game_over_bool = False
@@ -828,20 +885,32 @@ class Tetris:
                               self.reset_game(starting_level)
                     elif event.type == pygame.KEYDOWN:
                          if new_score:
-                              if event.key == pygame.K_RETURN:
+                              if event.key == pygame.K_ESCAPE:
+                                   game_over_bool = False
+                                   self.reset_game(starting_level)
+                                   self.main_menu()
+                              elif event.key == pygame.K_RETURN:
                                    # Save initial and score
-                                   databases.scores.append([user_input, new_score])
-                                   databases.scores.sort(key=lambda x: x[1], reverse=True)
-                                   current_scores = databases.scores[:5]
-                                   with open(databases.score_file, 'w') as file:
-                                        json.dump(current_scores, file, indent=4)
+                                   db.scores.append([user_input, new_score])
+                                   db.scores.sort(key=lambda x: x[1], reverse=True)
+                                   self.current_scores = db.scores[:5]
+                                   with open(db.score_file, 'w') as file:
+                                        json.dump(self.current_scores, file, indent=4)
                                    new_score = False
+                                   game_over_bool = False
+                                   self.reset_game(starting_level)
+                                   self.main_menu()
                               elif event.key == pygame.K_SPACE:
                                    pass
                               elif event.key == pygame.K_BACKSPACE:
                                    user_input = user_input[:-1]
                               elif len(user_input) < max_initials_length:
                                    user_input += event.unicode.upper()
+                         else:
+                              if event.key == pygame.K_ESCAPE:
+                                   game_over_bool = False
+                                   self.reset_game(starting_level)
+                                   self.main_menu()
                                    
                                    
                pygame.display.update()
@@ -895,30 +964,33 @@ class Tetris:
                     elif event.type == pygame.KEYDOWN:
                          # Pause
                          if event.key == pygame.K_ESCAPE:
+                              movement_right = False
+                              movement_left = False
+                              movement_bottom = False
                               self.display_pause_screen()
                          
                          # Rotate right
-                         elif event.key == current_keys["ROTATE RIGHT"]:
+                         elif event.key == self.current_keys["ROTATE RIGHT"]:
                               self.rotation += 1
                               if self.rotation == len(self.tetromino):
                                    self.rotation = 0
                          
                          # Rotate left
-                         elif event.key == current_keys["ROTATE LEFT"]:
+                         elif event.key == self.current_keys["ROTATE LEFT"]:
                               if self.rotation == 0:
                                    self.rotation = len(self.tetromino)
                               self.rotation -= 1
                          
                          # Hard drop
-                         elif event.key == current_keys["HARD DROP"]:
+                         elif event.key == self.current_keys["HARD DROP"]:
                               self.hard_drop()
                               holdable = True
                          
                          # Hold 
-                         elif event.key == current_keys["HOLD"]:
+                         elif event.key == self.current_keys["HOLD"]:
                               if holdable:
                                    # If there is no tetromino in hold, put the current tetromino in hold and get a new one
-                                   if len(self.hold_tetromino) == 1 and self.hold_tetromino != cfg.O:
+                                   if not self.hold_tetromino:
                                         self.hold_tetromino = self.tetromino
                                         self.grid_x = 2
                                         self.grid_y = -1
@@ -935,21 +1007,21 @@ class Tetris:
                                         holdable = False
                          
                          # Soft drop
-                         elif event.key == current_keys["SOFT DROP"] and not self.check_collision(dy=1):
+                         elif event.key == self.current_keys["SOFT DROP"] and not self.check_collision(dy=1):
                               self.grid_y += 1
                               movement_bottom = True
                               self.score += 1
                               last_move_time = current_time + initial_move_delay  # Adding initial delay for the first move
                          
                          # Left
-                         elif event.key == current_keys["MOVE LEFT"]:
+                         elif event.key == self.current_keys["MOVE LEFT"]:
                               movement_left = True
                               if not self.check_collision(dx=-1):
                                    self.grid_x -= 1
                               last_move_time = current_time + initial_move_delay  # Adding initial delay for the first move
                          
                          # Right
-                         elif event.key == current_keys["MOVE RIGHT"]:
+                         elif event.key == self.current_keys["MOVE RIGHT"]:
                               movement_right = True
                               if not self.check_collision(dx=1):
                                    self.grid_x += 1 
@@ -957,11 +1029,11 @@ class Tetris:
                     
                     # Stop continuous movement if buttons aren't being pressed
                     elif event.type == pygame.KEYUP:
-                         if event.key == current_keys["MOVE LEFT"]:
+                         if event.key == self.current_keys["MOVE LEFT"]:
                               movement_left = False
-                         elif event.key == current_keys["MOVE RIGHT"]:
+                         elif event.key == self.current_keys["MOVE RIGHT"]:
                               movement_right = False
-                         elif event.key == current_keys["SOFT DROP"]:
+                         elif event.key == self.current_keys["SOFT DROP"]:
                               movement_bottom = False           
                
                # Update and draw
