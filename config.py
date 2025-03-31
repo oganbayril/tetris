@@ -1,5 +1,6 @@
 import pygame
 import os
+from databases import options
 
 os.environ['SDL_VIDEO_CENTERED'] = '1' # Makes sure the window is centered after resolution change
 
@@ -8,10 +9,13 @@ LIGHT_BLUE, DARK_BLUE, ORANGE, YELLOW, GREEN, PURPLE, RED = (0, 255, 255), (0, 0
 
 BASE_WIDTH, BASE_HEIGHT = 320, 180 # Base resolution to scale from
 RESOLUTION_SCALING_MULTIPLIERS = [2, 3, 4, 5, 6, 8, 10, 12] # Respectively 640x360, 960x540, 1280x720, 1600x900, 1920x1080, 2560x1440, 3200x1800, 3840x2160
-USER_CHOICE_SCALE = 1 # 1 IS DEFAULT (960x540)
+
+USER_CHOICE_SCALE = options["resolution_scale_index"] # 1 IS DEFAULT (960x540)
+
+pygame.font.init()
 
 def update_resolution(scale_index):
-      global CELL_EDGE, RESOLUTION_DISPLAY, CENTER, PREDEFINED_POSITIONS, WINDOW
+      global CELL_EDGE, RESOLUTION_DISPLAY, CENTER, PREDEFINED_POSITIONS, WINDOW, FONT
       multiplier = RESOLUTION_SCALING_MULTIPLIERS[scale_index]
       
       width = BASE_WIDTH * multiplier
@@ -20,6 +24,7 @@ def update_resolution(scale_index):
       RESOLUTION_DISPLAY = {"width": width,
                               "height": height}
       WINDOW = pygame.display.set_mode((RESOLUTION_DISPLAY["width"], RESOLUTION_DISPLAY["height"]))
+      FONT = pygame.font.SysFont(None, CELL_EDGE)
       CENTER = RESOLUTION_DISPLAY["width"] // 2, RESOLUTION_DISPLAY["height"] // 2
       PREDEFINED_POSITIONS = {
             "CENTER": lambda: CENTER,
@@ -28,8 +33,6 @@ def update_resolution(scale_index):
 update_resolution(USER_CHOICE_SCALE)
 
 pygame.display.set_caption("Tetris")
-pygame.font.init()
-font = pygame.font.SysFont(None, CELL_EDGE)
 
 class Element:
       def __init__(self, num_cells_width: int, num_cells_height: int, cell_edge: int, surface=False, center=None, **kwargs):
@@ -116,7 +119,7 @@ KEYBIND_OVERLAY = Element(9, 9, CELL_EDGE, surface=True, center="CENTER")
 RESET_KEY_MAPPING_OVERLAY = Element(9, 9, CELL_EDGE, surface=True, center="CENTER")
 RESOLUTIONS_OVERLAY = Element(8, 16, CELL_EDGE, surface=True, center="CENTER")
 GAME_OVER_OVERLAY = Element(12, 12, CELL_EDGE, surface=True, center="CENTER")
-KEEP_CHANGES_OVERLAY = Element(8, 8, CELL_EDGE, surface=True, center="CENTER")
+KEEP_CHANGES_OVERLAY = Element(7, 7, CELL_EDGE, surface=True, center="CENTER")
 
 FRAMES = [
       PLAYFIELD_FRAME,
