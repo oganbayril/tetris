@@ -5,6 +5,7 @@ Controls:
   Pause/back: Esc
 
   Default Keybinds:
+  
     Move Left: Left Arrow (←)
     
     Move Right: Right Arrow (→)
