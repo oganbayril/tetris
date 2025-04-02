@@ -2,12 +2,13 @@ from pygame import Rect, draw, mouse
 from pygame.locals import MOUSEBUTTONDOWN
 
 class Button:
-    def __init__(self, text, size, font, colors, surface_rect=None):
+    def __init__(self, text, size, font, colors, surface_rect=None, clickable=True):
         self.text = text
         self.font = font
         self.colors = colors  # Tuple of (normal_color, hover_color)
         self.rect = Rect((0, 0), size)
         self.surface_rect = surface_rect
+        self.clickable = clickable
         self.render_text()
 
     def render_text(self):
@@ -30,6 +31,8 @@ class Button:
         screen.blit(self.text_surface, self.text_position)
 
     def is_clicked(self, event):
+        if not self.clickable:
+            return False
         if event.type == MOUSEBUTTONDOWN and event.button == 1:
             mouse_x, mouse_y = event.pos
 
