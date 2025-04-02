@@ -8,9 +8,9 @@ from button import Button
 import databases as db
 import config as cfg
 
-# Full path of your background image file (optional)
-# Supported formats: png, jpeg, bmp, tga, gif (non-animated), ppm, xpm
-background_image_file = r"YOUR_BACKGROUND_IMAGE_FILE.png"  # Change this to your image file name, png is recommended
+# Full path of your background image file (optional, png recommended)
+# Supported formats: png, jpeg, bmp, tga, gif (non-animated), ppm, xpm. (Check pygame documentation for more details)
+background_image_file = r"C:\Users\PC\Desktop\YOUR_BACKGROUND_IMAGE_FILE.png"  # Change this to your image file path
 
 check_if_background_image_exists = os.path.exists(background_image_file)
 
@@ -20,13 +20,13 @@ if check_if_background_image_exists:
 
 tetrominos = [cfg.I, cfg.J, cfg.L, cfg.O, cfg.S, cfg.T, cfg.Z]
 tetromino_colors = [cfg.LIGHT_BLUE, cfg.DARK_BLUE,cfg.ORANGE, cfg.YELLOW, cfg.GREEN, cfg.PURPLE, cfg.RED]
-starting_level = 1
 
 class Tetris:
      def __init__(self):
           self.options = db.options
           self.current_keys = self.options["keys"]
           self.current_scores = db.scores
+          self.starting_level = 1
           self.reset_game()
 
      def reset_game(self, level=1):
@@ -60,6 +60,9 @@ class Tetris:
           pygame.draw.rect(cfg.WINDOW, cfg.BLACK, cfg.NEXT_FRAME.element)
           pygame.draw.rect(cfg.WINDOW, cfg.BLACK, cfg.HOLD_FRAME.element)
           pygame.draw.rect(cfg.WINDOW, cfg.BLACK, cfg.SCORE_FRAME.element)
+          
+          # Draw playfield frame
+          pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.PLAYFIELD_FRAME.element, width=1)
           
           # Draw next tetromino frame
           pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.NEXT_FRAME.element, width=1)
@@ -326,8 +329,6 @@ class Tetris:
           return max(50, 1100 - level * 100)
      
      def main_menu(self):
-          global starting_level
-               
           main_menu_bool = True
           # Change the level from current (key) to the desired level (value)
           starting_levels_dict = { 
@@ -348,7 +349,6 @@ class Tetris:
 
           while main_menu_bool:
                self.draw_frames()
-               pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.PLAYFIELD_FRAME.element, width=1)
                pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, high_scores_rect, width=1)
                cfg.WINDOW.blit(high_scores_text, high_scores_text_rect)
                
@@ -368,7 +368,7 @@ class Tetris:
                     cfg.WINDOW.blit(score_to_draw, score_to_draw_rect)
                
                play_button = Button("PLAY", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREEN, cfg.DARK_GREEN))
-               level_button = Button(f"LEVEL: {starting_level}", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREY, cfg.DARK_GREY))
+               level_button = Button(f"LEVEL: {self.starting_level}", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREY, cfg.DARK_GREY))
                options_button = Button("OPTIONS", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREY, cfg.DARK_GREY))
                quit_button = Button("QUIT", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREY, cfg.DARK_GREY))
                
@@ -393,8 +393,8 @@ class Tetris:
                               main_menu_bool = False
                               self.display_options_screen("main menu")
                          elif level_button.is_clicked(event):
-                              starting_level = starting_levels_dict[self.level]
-                              self.reset_game(starting_level)
+                              self.starting_level = starting_levels_dict[self.level]
+                              self.reset_game(self.starting_level)
                          elif quit_button.is_clicked(event):
                               pygame.quit()
                               sys.exit()
@@ -445,7 +445,7 @@ class Tetris:
                          if quit_button.is_clicked(event):
                               paused = False
                               self.main_menu()
-                              self.reset_game(starting_level)
+                              self.reset_game(self.starting_level)
                
                pygame.display.update()
      
@@ -582,7 +582,7 @@ class Tetris:
                               self.display_key_mapping_screen(screen)
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                          if ok_button.is_clicked(event):
-                              self.options["keys"] = db.default_options["keys"]
+                              self.options["keys"] = db.default_options["keys"].copy()
                               self.current_keys = self.options["keys"]
                               with open(db.options_file, "w") as file:
                                    json.dump(self.options, file, indent=4)
@@ -661,7 +661,10 @@ class Tetris:
           resolution_buttons_list = []
           
           for i, (width, height) in enumerate(resolutions_list):
-               resolution_button = Button(f"{width}x{height}", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.RESOLUTIONS_OVERLAY.rect)
+               if width == cfg.RESOLUTION_DISPLAY["width"] and height == cfg.RESOLUTION_DISPLAY["height"]:
+                    resolution_button = Button(f"{width}x{height}", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.DARK_GREY, cfg.DARK_GREY), cfg.RESOLUTIONS_OVERLAY.rect, clickable=False)
+               else:
+                    resolution_button = Button(f"{width}x{height}", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.RESOLUTIONS_OVERLAY.rect)
                resolution_button.center(cfg.RESOLUTIONS_OVERLAY.width, 2 * ((cfg.RESOLUTIONS_OVERLAY.height // (len(resolutions_list) + 1) * (i + 1) + (cfg.CELL_EDGE // 2))))
                resolution_buttons_list.append(resolution_button)
           
@@ -694,7 +697,7 @@ class Tetris:
                pygame.display.update()
           
      def display_keep_changes_screen(self, index, screen):
-          previous_resolution_scale_index = cfg.USER_CHOICE_SCALE
+          previous_resolution_scale_index = self.options["resolution_scale_index"]
           
           def update_resolution(scale_index):
                global BACKGROUND
@@ -875,19 +878,19 @@ class Tetris:
                                    game_over_bool = False
                                    new_score = False
                                    self.main_menu()
-                                   self.reset_game(starting_level)
+                                   self.reset_game(self.starting_level)
                          else:
                               if main_menu_button.is_clicked(event):
                                    game_over_bool = False
                                    self.main_menu()
                               elif play_again_button.is_clicked(event):
                                    game_over_bool = False
-                              self.reset_game(starting_level)
+                              self.reset_game(self.starting_level)
                     elif event.type == pygame.KEYDOWN:
                          if new_score:
                               if event.key == pygame.K_ESCAPE:
                                    game_over_bool = False
-                                   self.reset_game(starting_level)
+                                   self.reset_game(self.starting_level)
                                    self.main_menu()
                               elif event.key == pygame.K_RETURN:
                                    # Save initial and score
@@ -898,7 +901,7 @@ class Tetris:
                                         json.dump(self.current_scores, file, indent=4)
                                    new_score = False
                                    game_over_bool = False
-                                   self.reset_game(starting_level)
+                                   self.reset_game(self.starting_level)
                                    self.main_menu()
                               elif event.key == pygame.K_SPACE:
                                    pass
@@ -909,7 +912,7 @@ class Tetris:
                          else:
                               if event.key == pygame.K_ESCAPE:
                                    game_over_bool = False
-                                   self.reset_game(starting_level)
+                                   self.reset_game(self.starting_level)
                                    self.main_menu()
                                    
                                    
