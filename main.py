@@ -18,8 +18,22 @@ if check_if_background_image_exists:
      BACKGROUND_IMAGE = pygame.image.load(os.path.join(db.script_dir, background_image_file))
      BACKGROUND = pygame.transform.scale(BACKGROUND_IMAGE, (cfg.RESOLUTION_DISPLAY["width"], cfg.RESOLUTION_DISPLAY["height"]))
 
-tetrominos = [cfg.I, cfg.J, cfg.L, cfg.O, cfg.S, cfg.T, cfg.Z]
-tetromino_colors = [cfg.LIGHT_BLUE, cfg.DARK_BLUE,cfg.ORANGE, cfg.YELLOW, cfg.GREEN, cfg.PURPLE, cfg.RED]
+tetrominos = [("I", cfg.I), ("J", cfg.J), ("L", cfg.L), ("O", cfg.O), ("S", cfg.S), ("T", cfg.T), ("Z", cfg.Z)]
+tetromino_colors = {
+    "I": cfg.LIGHT_BLUE,
+    "J": cfg.DARK_BLUE,
+    "L": cfg.ORANGE,
+    "O": cfg.YELLOW,
+    "S": cfg.GREEN,
+    "T": cfg.PURPLE,
+    "Z": cfg.RED,
+}
+
+# Offsets for tetrominos to center them in the next and hold frames
+tetromino_offsets = {
+    "I": (0, -1),
+    "O": (-1, 0),
+}
 
 class Tetris:
      def __init__(self):
@@ -30,19 +44,26 @@ class Tetris:
           self.reset_game()
 
      def reset_game(self, level=1):
-          self.grid_x = 2
-          self.grid_y = -1
+          self.bag = tetrominos.copy()
+          self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
           self.rows = cfg.PLAYFIELD_FRAME.num_cells_width
           self.columns = cfg.PLAYFIELD_FRAME.num_cells_height
-          self.rotation = 0
-          self.bag = tetrominos.copy()
-          self.tetromino = self.get_tetromino()
-          self.next_tetromino = self.get_tetromino()
           self.hold_tetromino = None
           self.score = 0
           self.level = level
           self.lines = 0
           self.board = [[0 for _ in range(self.rows)] for _ in range(self.columns)]
+     
+     def spawn_next_tetromino(self):
+          tetromino = getattr(self, "next_tetromino", None) or self.get_tetromino()
+          next_tetromino = self.get_tetromino()
+          rotation = 0
+          if tetromino[0] == "I":
+               grid_y = -1
+          else:
+               grid_y = 0
+          grid_x = (cfg.PLAYFIELD_FRAME.num_cells_width - len(tetromino[1][0])) // 2 # Center the tetromino horizontally
+          return grid_x, grid_y, rotation, tetromino, next_tetromino
           
      def get_tetromino(self):
           if not self.bag:
@@ -103,9 +124,9 @@ class Tetris:
           frame_center_y = frame.element.centery
           
           if frame == cfg.NEXT_FRAME:
-               tetromino = self.next_tetromino
+               name, tetromino = self.next_tetromino
           elif frame == cfg.HOLD_FRAME:
-               tetromino = self.hold_tetromino
+               name, tetromino = self.hold_tetromino if self.hold_tetromino else (None, None)
           if not tetromino:
                return
 
@@ -121,19 +142,15 @@ class Tetris:
           start_x = frame_center_x - tetromino_width // 2
           start_y = frame_center_y - tetromino_height // 2
           
-          if len(tetromino) == 1:
-               correction_x = 2
-          else:
-               correction_x = 1
-          correction_y = 1
-
+          offset_x, offset_y = tetromino_offsets.get(name, (0, 0))
+          
           # Draw the tetromino
           for i, row in enumerate(tetromino[0]):
                for j, block in enumerate(row):
                     if block == "0":
-                         x = start_x + (j - correction_x) * cfg.CELL_EDGE
-                         y = start_y + (i - correction_y) * cfg.CELL_EDGE
-                         pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos.index(tetromino)],
+                         x = start_x + (j + offset_x) * cfg.CELL_EDGE
+                         y = start_y + (i + offset_y) * cfg.CELL_EDGE
+                         pygame.draw.rect(cfg.WINDOW, tetromino_colors[name],
                                         (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
      
      def draw_playframe_lines(self):
@@ -156,7 +173,7 @@ class Tetris:
           for y, row in enumerate(self.board):
                for x, val in enumerate(row):
                     if val != 0:
-                         pygame.draw.rect(cfg.WINDOW, tetromino_colors[val - 1], (cfg.PLAYFIELD_FRAME.element.left + (x * cfg.CELL_EDGE), cfg.PLAYFIELD_FRAME.element.top + (y * cfg.CELL_EDGE), cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
+                         pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos[val - 1][0]], (cfg.PLAYFIELD_FRAME.element.left + (x * cfg.CELL_EDGE), cfg.PLAYFIELD_FRAME.element.top + (y * cfg.CELL_EDGE), cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
      
      def draw_score_screen(self):
           # Draw corresponding numbers in score screen
@@ -181,8 +198,9 @@ class Tetris:
           min_x, max_x = cfg.PLAYFIELD_FRAME.element.right, cfg.PLAYFIELD_FRAME.element.left
           min_y, max_y = cfg.PLAYFIELD_FRAME.element.bottom, cfg.PLAYFIELD_FRAME.element.top
           x_positions, y_positions = [], []
+          _, matrix = self.tetromino
 
-          for i, string in enumerate(self.tetromino[self.rotation]):
+          for i, string in enumerate(matrix[self.rotation]):
                for j, tetromino_piece in enumerate(string):
                     if tetromino_piece == "0":
                          # Convert grid coordinates to pixel coordinates
@@ -206,19 +224,21 @@ class Tetris:
                x_positions = [x - cfg.CELL_EDGE for x in x_positions]
 
           # Draw tetromino
+          name, _ = self.tetromino
           for x, y in zip(x_positions, y_positions):
-               pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos.index(self.tetromino)], 
+               pygame.draw.rect(cfg.WINDOW, tetromino_colors[name], 
                                    (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
      
      def draw_ghost_piece(self, display_update=True):
           ghost_y = self.get_ghost_position()
           
-          for i, row in enumerate(self.tetromino[self.rotation]):
+          name, matrix = self.tetromino
+          for i, row in enumerate(matrix[self.rotation]):
                for j, block in enumerate(row):
                     if block == "0":
                          x = cfg.PLAYFIELD_FRAME.element.left + (self.grid_x + j) * cfg.CELL_EDGE
                          y = cfg.PLAYFIELD_FRAME.element.top + (ghost_y + i) * cfg.CELL_EDGE
-                         pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos.index(self.tetromino)], (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1), 1)
+                         pygame.draw.rect(cfg.WINDOW, tetromino_colors[name], (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1), 1)
 
           if display_update:
                pygame.display.update()
@@ -233,7 +253,8 @@ class Tetris:
           self.draw_ghost_piece(display_update=False)
 
      def place_tetromino(self):
-          for i, row in enumerate(self.tetromino[self.rotation]):
+          _, matrix = self.tetromino
+          for i, row in enumerate(matrix[self.rotation]):
                for j, block in enumerate(row):
                     if block == "0":
                          grid_x = self.grid_x + j
@@ -243,12 +264,10 @@ class Tetris:
                          self.board[grid_y][grid_x] = tetrominos.index(self.tetromino) + 1
           
      def check_collision(self, dx=0, dy=0, grid_y=None, rotation=None):
-          if self.tetromino == cfg.O:
-               rotation = 0
-          else:
-               rotation = rotation if rotation is not None else self.rotation
-
-          for i, row in enumerate(self.tetromino[rotation]):
+          rotation = rotation if rotation is not None else self.rotation
+          
+          _, matrix = self.tetromino
+          for i, row in enumerate(matrix[rotation]):
                for j, block in enumerate(row):
                     if block == "0":
                          new_x = self.grid_x + j + dx
@@ -268,6 +287,24 @@ class Tetris:
                               return True  # Collision with another block
                          
           return False  # No collision
+     
+     def attempt_rotation(self, direction):
+          old_rotation = self.rotation
+          new_rotation = (self.rotation + direction) % 4
+
+          name, _ = self.tetromino
+          key = (old_rotation, new_rotation)
+          
+          kicks = cfg.I_KICKS.get(key, []) if name == "I" else cfg.STANDARD_KICKS.get(key, [])
+
+          for dx, dy in kicks:
+               if not self.check_collision(dx=dx, dy=dy, rotation=new_rotation):
+                    self.rotation = new_rotation
+                    self.grid_x += dx
+                    self.grid_y += dy
+                    return  # Successful rotation
+
+          # If all kicks fail, rotation doesn't happen
 
      def get_ghost_position(self):
           ghost_y = self.grid_y
@@ -317,12 +354,8 @@ class Tetris:
           # TODO: CONFIRM IF THIS WORKS
           pygame.time.delay(10) # Added a small delay to remove any accidental inputs like 2 tetrominos hard dropping at the same time (i don't know if this actually works, might need to change later)
           
-          # Reset tetromino position and get a new one
-          self.grid_x = 2
-          self.grid_y = -1
-          self.rotation = 0
-          self.tetromino = self.next_tetromino
-          self.next_tetromino = self.get_tetromino()
+          # Reset tetromino and spawn the next one
+          self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
           
      def get_fall_delay(self, level):
           # Fall speed
@@ -935,6 +968,7 @@ class Tetris:
                clock.tick(60)
                current_time = pygame.time.get_ticks()
                fall_delay = self.get_fall_delay(self.level)
+               _, matrix = self.tetromino
                
                # Game end
                if self.board[0][4] != 0 or self.board[0][5] != 0:
@@ -974,15 +1008,12 @@ class Tetris:
                          
                          # Rotate right
                          elif event.key == self.current_keys["ROTATE RIGHT"]:
-                              self.rotation += 1
-                              if self.rotation == len(self.tetromino):
-                                   self.rotation = 0
+                              self.attempt_rotation(+1)
                          
                          # Rotate left
                          elif event.key == self.current_keys["ROTATE LEFT"]:
-                              if self.rotation == 0:
-                                   self.rotation = len(self.tetromino)
-                              self.rotation -= 1
+                              self.attempt_rotation(-1)
+
                          
                          # Hard drop
                          elif event.key == self.current_keys["HARD DROP"]:
@@ -995,18 +1026,12 @@ class Tetris:
                                    # If there is no tetromino in hold, put the current tetromino in hold and get a new one
                                    if not self.hold_tetromino:
                                         self.hold_tetromino = self.tetromino
-                                        self.grid_x = 2
-                                        self.grid_y = -1
-                                        self.rotation = 0
-                                        self.tetromino = self.next_tetromino
-                                        self.next_tetromino = self.get_tetromino()
+                                        self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
                                         holdable = False
                                    # If there is a tetromino in hold, swap the hold and current tetrominos
                                    else:
                                         self.tetromino, self.hold_tetromino = self.hold_tetromino, self.tetromino
-                                        self.grid_x = 2
-                                        self.grid_y = -1
-                                        self.rotation = 0
+                                        self.grid_x, self.grid_y, self.rotation = 3, -1 if self.tetromino == cfg.I else 0, 0 # Reset position and rotation
                                         holdable = False
                          
                          # Soft drop
@@ -1053,11 +1078,8 @@ class Tetris:
                     holdable = True
 
                     # Reset tetromino position and get a new one
-                    self.grid_x = 2
-                    self.grid_y = -1
-                    self.rotation = 0
-                    self.tetromino = self.next_tetromino
-                    self.next_tetromino = self.get_tetromino()
+                    self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
+                    
                     last_fall_time = pygame.time.get_ticks()  # Reset fall time to avoid instant fall of new tetromino
 
           pygame.quit()
