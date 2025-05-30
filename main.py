@@ -49,6 +49,7 @@ class Tetris:
           self.rows = cfg.PLAYFIELD_FRAME.num_cells_width
           self.columns = cfg.PLAYFIELD_FRAME.num_cells_height
           self.hold_tetromino = None
+          self.last_action_was_rotation = False # For T-Spin detection
           self.score = 0
           self.level = level
           self.lines = 0
@@ -58,6 +59,7 @@ class Tetris:
           tetromino = getattr(self, "next_tetromino", None) or self.get_tetromino()
           next_tetromino = self.get_tetromino()
           rotation = 0
+          
           if tetromino[0] == "I":
                grid_y = -1
           else:
@@ -214,14 +216,6 @@ class Tetris:
 
                          x_positions.append(x_position)
                          y_positions.append(y_position)
-          
-          # Implementing wall kick
-          while min(x_positions) < cfg.PLAYFIELD_FRAME.element.left:
-               self.grid_x += 1
-               x_positions = [x + cfg.CELL_EDGE for x in x_positions]
-          while max(x_positions) >= cfg.PLAYFIELD_FRAME.element.right:
-               self.grid_x -= 1
-               x_positions = [x - cfg.CELL_EDGE for x in x_positions]
 
           # Draw tetromino
           name, _ = self.tetromino
@@ -262,6 +256,7 @@ class Tetris:
                          
                          # Place tetromino on the board
                          self.board[grid_y][grid_x] = tetrominos.index(self.tetromino) + 1
+          self.last_action_was_rotation = False
           
      def check_collision(self, dx=0, dy=0, grid_y=None, rotation=None):
           rotation = rotation if rotation is not None else self.rotation
@@ -302,7 +297,8 @@ class Tetris:
                     self.rotation = new_rotation
                     self.grid_x += dx
                     self.grid_y += dy
-                    return  # Successful rotation
+                    self.last_action_was_rotation = True
+                    return
 
           # If all kicks fail, rotation doesn't happen
 
@@ -313,9 +309,35 @@ class Tetris:
                ghost_y += 1
           
           return ghost_y
-
+     
+     def is_t_spin(self):
+          if self.tetromino[0] != "T" or not self.last_action_was_rotation:
+               return False
+          
+          center_x = self.grid_x + 1
+          center_y = self.grid_y + 1
+          
+          # Check the 4 corners around the T center
+          corners = [
+               (center_x - 1, center_y - 1),  # Top-left
+               (center_x + 1, center_y - 1),  # Top-right
+               (center_x - 1, center_y + 1),  # Bottom-left
+               (center_x + 1, center_y + 1),  # Bottom-right
+          ]
+          
+          filled_corners = 0
+          for x, y in corners:
+               # Check if corner is filled (either by placed piece or out of bounds)
+               if (x < 0 or x >= len(self.board[0]) or 
+                    y < 0 or y >= len(self.board) or 
+                    self.board[y][x] != 0):
+                    filled_corners += 1
+          
+          # It's a T-Spin if at least 3 corners are filled
+          return filled_corners >= 3
      
      def clear_rows(self):
+          was_t_spin = self.is_t_spin() if self.tetromino[0] == "T" else False
           rows_cleared = []
           
           # If row is a complete line, add corresponding row to the list
@@ -329,16 +351,23 @@ class Tetris:
                     self.board[i] = self.board[i - 1]
                self.board[0] = [0 for _ in range(self.rows)]
           
-          # Increase score according to the amount of rows cleared in one move and the level
-          if len(rows_cleared) == 1:
-               self.score += 100 * (self.level + 1)
-          elif len(rows_cleared) == 2:
-               self.score += 300 * (self.level + 1)
-          elif len(rows_cleared) == 3:
-               self.score += 500 * (self.level + 1)
-          elif len(rows_cleared) == 4:
-               self.score += 800 * (self.level + 1)
-          
+          if was_t_spin:
+               if len(rows_cleared) == 1:
+                    self.score += 800 * (self.level + 1)
+               elif len(rows_cleared) == 2:
+                    self.score += 1200 * (self.level + 1)
+               elif len(rows_cleared) == 3:
+                    self.score += 1600 * (self.level + 1)
+          else:
+               if len(rows_cleared) == 1:
+                    self.score += 100 * (self.level + 1)
+               elif len(rows_cleared) == 2:
+                    self.score += 300 * (self.level + 1)
+               elif len(rows_cleared) == 3:
+                    self.score += 500 * (self.level + 1)
+               elif len(rows_cleared) == 4:
+                    self.score += 800 * (self.level + 1)
+               
           for i in range(len(rows_cleared)):
                self.lines += 1
                if self.lines % 10 == 0:
@@ -957,8 +986,11 @@ class Tetris:
           movement_left = False
           movement_right = False
           movement_bottom = False
+          touching_ground = False
           initial_move_delay = 100  # Initial delay before repeating movement
           move_fast_delay = 50  # Faster delay for continuous movement
+          lock_start_time = 0
+          lock_delay = 500  # 500ms lock delay (adjust as needed)
           last_move_time = pygame.time.get_ticks()
           last_fall_time = pygame.time.get_ticks()
           holdable = True
@@ -968,7 +1000,6 @@ class Tetris:
                clock.tick(60)
                current_time = pygame.time.get_ticks()
                fall_delay = self.get_fall_delay(self.level)
-               _, matrix = self.tetromino
                
                # Game end
                if self.board[0][4] != 0 or self.board[0][5] != 0:
@@ -976,7 +1007,8 @@ class Tetris:
                
                # Tetromino fall
                if current_time - last_fall_time > fall_delay:
-                    self.grid_y += 1
+                    if not touching_ground and not self.check_collision(dy=1):
+                         self.grid_y += 1
                     last_fall_time = current_time
                
                # Continuous movement
@@ -1014,7 +1046,6 @@ class Tetris:
                          elif event.key == self.current_keys["ROTATE LEFT"]:
                               self.attempt_rotation(-1)
 
-                         
                          # Hard drop
                          elif event.key == self.current_keys["HARD DROP"]:
                               self.hard_drop()
@@ -1023,6 +1054,7 @@ class Tetris:
                          # Hold 
                          elif event.key == self.current_keys["HOLD"]:
                               if holdable:
+                                   self.last_action_was_rotation = False
                                    # If there is no tetromino in hold, put the current tetromino in hold and get a new one
                                    if not self.hold_tetromino:
                                         self.hold_tetromino = self.tetromino
@@ -1036,6 +1068,7 @@ class Tetris:
                          
                          # Soft drop
                          elif event.key == self.current_keys["SOFT DROP"] and not self.check_collision(dy=1):
+                              self.last_action_was_rotation = False
                               self.grid_y += 1
                               movement_bottom = True
                               self.score += 1
@@ -1043,6 +1076,7 @@ class Tetris:
                          
                          # Left
                          elif event.key == self.current_keys["MOVE LEFT"]:
+                              self.last_action_was_rotation = False
                               movement_left = True
                               if not self.check_collision(dx=-1):
                                    self.grid_x -= 1
@@ -1050,6 +1084,7 @@ class Tetris:
                          
                          # Right
                          elif event.key == self.current_keys["MOVE RIGHT"]:
+                              self.last_action_was_rotation = False
                               movement_right = True
                               if not self.check_collision(dx=1):
                                    self.grid_x += 1 
@@ -1072,15 +1107,23 @@ class Tetris:
                self.draw_gameloop()
                self.draw_ghost_piece()
                
-               # Place tetromino if tetromino reached the bottom or if there's a collision with another tetromino in the y axis
                if self.check_collision(dy=1):
-                    self.place_tetromino()
-                    holdable = True
+                    if not touching_ground:
+                         touching_ground = True
+                         lock_start_time = pygame.time.get_ticks()
 
-                    # Reset tetromino position and get a new one
-                    self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
-                    
-                    last_fall_time = pygame.time.get_ticks()  # Reset fall time to avoid instant fall of new tetromino
+                    current_time = pygame.time.get_ticks()
+                    if current_time - lock_start_time >= lock_delay:
+                         self.place_tetromino()
+                         holdable = True
+                         
+                         # Reset tetromino position and get a new one
+                         self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
+                         
+                         last_fall_time = pygame.time.get_ticks()
+                         touching_ground = False
+               else:
+                    touching_ground = False
 
           pygame.quit()
 
