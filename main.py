@@ -49,6 +49,8 @@ class Tetris:
           self.rows = cfg.PLAYFIELD_FRAME.num_cells_width
           self.columns = cfg.PLAYFIELD_FRAME.num_cells_height
           self.hold_tetromino = None
+          self.touching_ground = False
+          self.ground_touch_start_time = None
           self.last_action_was_rotation = False # For T-Spin detection
           self.score = 0
           self.level = level
@@ -217,22 +219,39 @@ class Tetris:
                          x_positions.append(x_position)
                          y_positions.append(y_position)
 
-          # Draw tetromino
+          # Get base color and apply fade to black effect if touching ground
           name, _ = self.tetromino
+          base_color = tetromino_colors[name]
+          
+          if self.touching_ground:
+               if self.ground_touch_start_time is None:
+                    self.ground_touch_start_time = pygame.time.get_ticks()
+               
+               elapsed = pygame.time.get_ticks()  - self.ground_touch_start_time
+               fade_progress = min(elapsed / 500.0, 1.0)  # 500.0 = lock delay, adjust if needed
+               fade_factor = 1.0 - (fade_progress * 0.7)  # Fade from 100% to 30%
+               
+               color = tuple(int(c * fade_factor) for c in base_color)
+          else:
+               color = base_color
+               self.ground_touch_start_time = None  # Reset for next piece
+
+          # Draw tetromino with the (possibly pulsing) color
           for x, y in zip(x_positions, y_positions):
-               pygame.draw.rect(cfg.WINDOW, tetromino_colors[name], 
-                                   (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
+               pygame.draw.rect(cfg.WINDOW, color, 
+                              (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
      
      def draw_ghost_piece(self, display_update=True):
           ghost_y = self.get_ghost_position()
           
-          name, matrix = self.tetromino
-          for i, row in enumerate(matrix[self.rotation]):
-               for j, block in enumerate(row):
-                    if block == "0":
-                         x = cfg.PLAYFIELD_FRAME.element.left + (self.grid_x + j) * cfg.CELL_EDGE
-                         y = cfg.PLAYFIELD_FRAME.element.top + (ghost_y + i) * cfg.CELL_EDGE
-                         pygame.draw.rect(cfg.WINDOW, tetromino_colors[name], (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1), 1)
+          if not self.touching_ground:
+               name, matrix = self.tetromino
+               for i, row in enumerate(matrix[self.rotation]):
+                    for j, block in enumerate(row):
+                         if block == "0":
+                              x = cfg.PLAYFIELD_FRAME.element.left + (self.grid_x + j) * cfg.CELL_EDGE
+                              y = cfg.PLAYFIELD_FRAME.element.top + (ghost_y + i) * cfg.CELL_EDGE
+                              pygame.draw.rect(cfg.WINDOW, tetromino_colors[name], (x, y, cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1), 1)
 
           if display_update:
                pygame.display.update()
@@ -374,7 +393,6 @@ class Tetris:
                     self.level += 1
      
      def hard_drop(self):
-          # Drop tetromino until y collision
           while not self.check_collision(dy=1):
                self.grid_y += 1
                self.score += 2
@@ -986,7 +1004,6 @@ class Tetris:
           movement_left = False
           movement_right = False
           movement_bottom = False
-          touching_ground = False
           initial_move_delay = 100  # Initial delay before repeating movement
           move_fast_delay = 50  # Faster delay for continuous movement
           lock_start_time = 0
@@ -1007,7 +1024,7 @@ class Tetris:
                
                # Tetromino fall
                if current_time - last_fall_time > fall_delay:
-                    if not touching_ground and not self.check_collision(dy=1):
+                    if not self.touching_ground and not self.check_collision(dy=1):
                          self.grid_y += 1
                     last_fall_time = current_time
                
@@ -1102,14 +1119,12 @@ class Tetris:
                # Update and draw
                self.clear_rows()
                self.draw_frames()
-               self.draw_playframe_lines()
-               self.draw_tetromino()
                self.draw_gameloop()
                self.draw_ghost_piece()
                
                if self.check_collision(dy=1):
-                    if not touching_ground:
-                         touching_ground = True
+                    if not self.touching_ground:
+                         self.touching_ground = True
                          lock_start_time = pygame.time.get_ticks()
 
                     current_time = pygame.time.get_ticks()
@@ -1121,11 +1136,12 @@ class Tetris:
                          self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
                          
                          last_fall_time = pygame.time.get_ticks()
-                         touching_ground = False
+                         self.touching_ground = False
                else:
-                    touching_ground = False
+                    self.touching_ground = False
 
           pygame.quit()
+
 
 
 
