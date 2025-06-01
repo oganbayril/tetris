@@ -3,6 +3,7 @@ import random
 import os
 import sys
 import json
+import math
 
 from button import Button
 import databases as db
@@ -56,6 +57,13 @@ class Tetris:
           self.level = level
           self.lines = 0
           self.board = [[0 for _ in range(self.rows)] for _ in range(self.columns)]
+          self.lock_delay = 500  # 500ms lock delay (adjust as needed)
+          self.clearing_animation = False
+          self.clearing_rows = []
+          self.animation_timer = 0
+          self.animation_duration = 15  # Frames for line clear animation, lower means faster (adjust as needed, you can change this to 0 for instant clear)
+          self.pending_t_spin = False
+          self.last_fall_time = pygame.time.get_ticks()
      
      def spawn_next_tetromino(self):
           tetromino = getattr(self, "next_tetromino", None) or self.get_tetromino()
@@ -177,7 +185,20 @@ class Tetris:
           for y, row in enumerate(self.board):
                for x, val in enumerate(row):
                     if val != 0:
-                         pygame.draw.rect(cfg.WINDOW, tetromino_colors[tetrominos[val - 1][0]], (cfg.PLAYFIELD_FRAME.element.left + (x * cfg.CELL_EDGE), cfg.PLAYFIELD_FRAME.element.top + (y * cfg.CELL_EDGE), cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
+                         # Check if this row is being cleared and should flash
+                         if self.clearing_animation and y in self.clearing_rows:
+                              # Create flashing effect - alternates between white and original color
+                              flash_cycle = math.sin(self.animation_timer * 0.8) > 0  # Flashes about 8 times per second
+                              
+                              if flash_cycle:
+                                   color = cfg.WHITE
+                              else:
+                                   color = tetromino_colors[tetrominos[val - 1][0]]
+                         else:
+                              # Normal color for non-clearing rows
+                              color = tetromino_colors[tetrominos[val - 1][0]]
+                         
+                         pygame.draw.rect(cfg.WINDOW, color, (cfg.PLAYFIELD_FRAME.element.left + (x * cfg.CELL_EDGE), cfg.PLAYFIELD_FRAME.element.top + (y * cfg.CELL_EDGE), cfg.CELL_EDGE - 1, cfg.CELL_EDGE - 1))
      
      def draw_score_screen(self):
           # Draw corresponding numbers in score screen
@@ -357,12 +378,26 @@ class Tetris:
      
      def clear_rows(self):
           was_t_spin = self.is_t_spin() if self.tetromino[0] == "T" else False
-          rows_cleared = []
+          rows_to_clear = []
           
           # If row is a complete line, add corresponding row to the list
           for i, row in enumerate(self.board):
                if all(row):
-                    rows_cleared.append(i)
+                    rows_to_clear.append(i)
+          
+          if rows_to_clear:
+               # Start animation instead of immediately clearing
+               self.clearing_animation = True
+               self.clearing_rows = rows_to_clear
+               self.animation_timer = 0
+               self.pending_t_spin = was_t_spin  # Store for later scoring
+               return True  # Indicate that clearing is in progress
+          
+          return False  # No lines to clear
+     
+     def complete_line_clear(self):
+          rows_cleared = self.clearing_rows
+          was_t_spin = self.pending_t_spin
           
           # Clear the corresponding rows from the board, drop rows before them by one block, recreate the first row
           for row in rows_cleared:
@@ -370,6 +405,7 @@ class Tetris:
                     self.board[i] = self.board[i - 1]
                self.board[0] = [0 for _ in range(self.rows)]
           
+          # Your existing scoring logic
           if was_t_spin:
                if len(rows_cleared) == 1:
                     self.score += 800 * (self.level + 1)
@@ -386,11 +422,25 @@ class Tetris:
                     self.score += 500 * (self.level + 1)
                elif len(rows_cleared) == 4:
                     self.score += 800 * (self.level + 1)
-               
+          
           for i in range(len(rows_cleared)):
                self.lines += 1
                if self.lines % 10 == 0:
                     self.level += 1
+          
+          # Reset animation state
+          self.clearing_animation = False
+          self.clearing_rows = []
+          self.animation_timer = 0
+          self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
+          self.last_fall_time = pygame.time.get_ticks()
+     
+     def update_clearing_animation(self):
+          self.animation_timer += 1
+          
+          if self.animation_timer >= self.animation_duration:
+               # Animation complete, actually clear the lines
+               self.complete_line_clear()
      
      def hard_drop(self):
           while not self.check_collision(dy=1):
@@ -402,7 +452,8 @@ class Tetris:
           pygame.time.delay(10) # Added a small delay to remove any accidental inputs like 2 tetrominos hard dropping at the same time (i don't know if this actually works, might need to change later)
           
           # Reset tetromino and spawn the next one
-          self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
+          if not self.clear_rows():
+               self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
           
      def get_fall_delay(self, level):
           # Fall speed
@@ -946,6 +997,7 @@ class Tetris:
                     if event.type == pygame.QUIT:
                          pygame.quit()
                          sys.exit()
+                         
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                          if new_score:
                               if ok_button.is_clicked(event):
@@ -959,6 +1011,7 @@ class Tetris:
                                    new_score = False
                                    self.main_menu()
                                    self.reset_game(self.starting_level)
+                                   
                          else:
                               if main_menu_button.is_clicked(event):
                                    game_over_bool = False
@@ -966,12 +1019,14 @@ class Tetris:
                               elif play_again_button.is_clicked(event):
                                    game_over_bool = False
                               self.reset_game(self.starting_level)
+                              
                     elif event.type == pygame.KEYDOWN:
                          if new_score:
                               if event.key == pygame.K_ESCAPE:
                                    game_over_bool = False
                                    self.reset_game(self.starting_level)
                                    self.main_menu()
+                                   
                               elif event.key == pygame.K_RETURN:
                                    # Save initial and score
                                    db.scores.append([user_input, new_score])
@@ -983,12 +1038,16 @@ class Tetris:
                                    game_over_bool = False
                                    self.reset_game(self.starting_level)
                                    self.main_menu()
+                                   
                               elif event.key == pygame.K_SPACE:
                                    pass
+                              
                               elif event.key == pygame.K_BACKSPACE:
                                    user_input = user_input[:-1]
+                                   
                               elif len(user_input) < max_initials_length:
                                    user_input += event.unicode.upper()
+                                   
                          else:
                               if event.key == pygame.K_ESCAPE:
                                    game_over_bool = False
@@ -1007,9 +1066,7 @@ class Tetris:
           initial_move_delay = 100  # Initial delay before repeating movement
           move_fast_delay = 50  # Faster delay for continuous movement
           lock_start_time = 0
-          lock_delay = 500  # 500ms lock delay (adjust as needed)
           last_move_time = pygame.time.get_ticks()
-          last_fall_time = pygame.time.get_ticks()
           holdable = True
           self.main_menu()
           
@@ -1018,15 +1075,12 @@ class Tetris:
                current_time = pygame.time.get_ticks()
                fall_delay = self.get_fall_delay(self.level)
                
-               # Game end
-               if self.board[0][4] != 0 or self.board[0][5] != 0:
-                    self.game_over_screen()
-               
                # Tetromino fall
-               if current_time - last_fall_time > fall_delay:
-                    if not self.touching_ground and not self.check_collision(dy=1):
-                         self.grid_y += 1
-                    last_fall_time = current_time
+               if not self.clearing_animation:
+                    if current_time - self.last_fall_time > fall_delay:
+                         if not self.touching_ground and not self.check_collision(dy=1):
+                              self.grid_y += 1
+                         self.last_fall_time = current_time
                
                # Continuous movement
                if movement_left and not self.check_collision(dx=-1):
@@ -1055,34 +1109,6 @@ class Tetris:
                               movement_bottom = False
                               self.display_pause_screen()
                          
-                         # Rotate right
-                         elif event.key == self.current_keys["ROTATE RIGHT"]:
-                              self.attempt_rotation(+1)
-                         
-                         # Rotate left
-                         elif event.key == self.current_keys["ROTATE LEFT"]:
-                              self.attempt_rotation(-1)
-
-                         # Hard drop
-                         elif event.key == self.current_keys["HARD DROP"]:
-                              self.hard_drop()
-                              holdable = True
-                         
-                         # Hold 
-                         elif event.key == self.current_keys["HOLD"]:
-                              if holdable:
-                                   self.last_action_was_rotation = False
-                                   # If there is no tetromino in hold, put the current tetromino in hold and get a new one
-                                   if not self.hold_tetromino:
-                                        self.hold_tetromino = self.tetromino
-                                        self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
-                                        holdable = False
-                                   # If there is a tetromino in hold, swap the hold and current tetrominos
-                                   else:
-                                        self.tetromino, self.hold_tetromino = self.hold_tetromino, self.tetromino
-                                        self.grid_x, self.grid_y, self.rotation = 3, -1 if self.tetromino == cfg.I else 0, 0 # Reset position and rotation
-                                        holdable = False
-                         
                          # Soft drop
                          elif event.key == self.current_keys["SOFT DROP"] and not self.check_collision(dy=1):
                               self.last_action_was_rotation = False
@@ -1106,6 +1132,35 @@ class Tetris:
                               if not self.check_collision(dx=1):
                                    self.grid_x += 1 
                               last_move_time = current_time + initial_move_delay  # Adding initial delay for the first move
+
+                         # Hard drop
+                         elif event.key == self.current_keys["HARD DROP"]:
+                              self.hard_drop()
+                              holdable = True
+                         
+                         elif not self.clearing_animation:
+                              # Hold 
+                              if event.key == self.current_keys["HOLD"]:
+                                   if holdable:
+                                        self.last_action_was_rotation = False
+                                        # If there is no tetromino in hold, put the current tetromino in hold and get a new one
+                                        if not self.hold_tetromino:
+                                             self.hold_tetromino = self.tetromino
+                                             self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
+                                             holdable = False
+                                        # If there is a tetromino in hold, swap the hold and current tetrominos
+                                        else:
+                                             self.tetromino, self.hold_tetromino = self.hold_tetromino, self.tetromino
+                                             self.grid_x, self.grid_y, self.rotation = 3, -1 if self.tetromino == cfg.I else 0, 0 # Reset position and rotation
+                                             holdable = False
+                              
+                              # Rotate right
+                              elif event.key == self.current_keys["ROTATE RIGHT"]:
+                                   self.attempt_rotation(+1)
+                              
+                              # Rotate left
+                              elif event.key == self.current_keys["ROTATE LEFT"]:
+                                   self.attempt_rotation(-1)
                     
                     # Stop continuous movement if buttons aren't being pressed
                     elif event.type == pygame.KEYUP:
@@ -1115,30 +1170,40 @@ class Tetris:
                               movement_right = False
                          elif event.key == self.current_keys["SOFT DROP"]:
                               movement_bottom = False           
-               
+                              
                # Update and draw
-               self.clear_rows()
+               if not self.clearing_animation:
+                    self.clear_rows()
+               else:
+                    self.update_clearing_animation()
+
                self.draw_frames()
                self.draw_gameloop()
                self.draw_ghost_piece()
                
-               if self.check_collision(dy=1):
-                    if not self.touching_ground:
-                         self.touching_ground = True
-                         lock_start_time = pygame.time.get_ticks()
+               if not self.clearing_animation:
+                    if self.check_collision(dy=1):
+                         if not self.touching_ground:
+                              self.touching_ground = True
+                              lock_start_time = pygame.time.get_ticks()
 
-                    current_time = pygame.time.get_ticks()
-                    if current_time - lock_start_time >= lock_delay:
-                         self.place_tetromino()
-                         holdable = True
-                         
-                         # Reset tetromino position and get a new one
-                         self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
-                         
-                         last_fall_time = pygame.time.get_ticks()
+                         current_time = pygame.time.get_ticks()
+                         if current_time - lock_start_time >= self.lock_delay:
+                              self.place_tetromino()
+                              holdable = True
+                              
+                              # Check if lines need to be cleared before spawning next piece. If lines are cleared, the spawning will happen after the animation completes
+                              if not self.clear_rows():
+                                   self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
+                                   self.last_fall_time = pygame.time.get_ticks()
+                                   
+                                   # Game end
+                                   if self.board[0][4] != 0 or self.board[0][5] != 0:
+                                        self.game_over_screen()
+                              
+                              self.touching_ground = False
+                    else:
                          self.touching_ground = False
-               else:
-                    self.touching_ground = False
 
           pygame.quit()
 
