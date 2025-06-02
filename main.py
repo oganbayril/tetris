@@ -61,9 +61,10 @@ class Tetris:
           self.clearing_animation = False
           self.clearing_rows = []
           self.animation_timer = 0
-          self.animation_duration = 15  # Frames for line clear animation, lower means faster (adjust as needed, you can change this to 0 for instant clear)
+          self.animation_duration = 15  # 15 Frames for line clear animation, lower means faster (adjust as needed, you can change this to 0 for instant clear)
           self.pending_t_spin = False
           self.last_fall_time = pygame.time.get_ticks()
+          self.hard_drop_cooldown = 150 # 150ms cooldown for hard drop (adjust as needed)
      
      def spawn_next_tetromino(self):
           tetromino = getattr(self, "next_tetromino", None) or self.get_tetromino()
@@ -277,14 +278,14 @@ class Tetris:
           if display_update:
                pygame.display.update()
      
-     def draw_gameloop(self):
+     def draw_gameloop(self, ghost_display_update=False):
           self.draw_next_hold_screens(cfg.NEXT_FRAME)
           self.draw_next_hold_screens(cfg.HOLD_FRAME)
           self.draw_playframe_lines()
           self.draw_placed_tetrominos()
           self.draw_score_screen()
           self.draw_tetromino()
-          self.draw_ghost_piece(display_update=False)
+          self.draw_ghost_piece(display_update=ghost_display_update)
 
      def place_tetromino(self):
           _, matrix = self.tetromino
@@ -447,17 +448,20 @@ class Tetris:
                self.grid_y += 1
                self.score += 2
           self.place_tetromino()
-          
-          # TODO: CONFIRM IF THIS WORKS
-          pygame.time.delay(10) # Added a small delay to remove any accidental inputs like 2 tetrominos hard dropping at the same time (i don't know if this actually works, might need to change later)
-          
+
           # Reset tetromino and spawn the next one
           if not self.clear_rows():
                self.grid_x, self.grid_y, self.rotation, self.tetromino, self.next_tetromino = self.spawn_next_tetromino()
+               # Game end
+               if self.check_collision(dy=0):
+                    self.draw_tetromino()
+                    self.game_over_screen()
           
      def get_fall_delay(self, level):
           # Fall speed
-          return max(50, 1100 - level * 100)
+          if level >= 15:
+               return 10 # DEATH MODE
+          return max(25, 1100 - level * 100)
      
      def main_menu(self):
           main_menu_bool = True
@@ -1067,6 +1071,7 @@ class Tetris:
           move_fast_delay = 50  # Faster delay for continuous movement
           lock_start_time = 0
           last_move_time = pygame.time.get_ticks()
+          last_hard_drop_time = pygame.time.get_ticks()
           holdable = True
           self.main_menu()
           
@@ -1135,8 +1140,10 @@ class Tetris:
 
                          # Hard drop
                          elif event.key == self.current_keys["HARD DROP"]:
-                              self.hard_drop()
-                              holdable = True
+                              if current_time - last_hard_drop_time >= self.hard_drop_cooldown:
+                                   self.hard_drop()
+                                   last_hard_drop_time = current_time
+                                   holdable = True
                          
                          elif not self.clearing_animation:
                               # Hold 
@@ -1178,8 +1185,7 @@ class Tetris:
                     self.update_clearing_animation()
 
                self.draw_frames()
-               self.draw_gameloop()
-               self.draw_ghost_piece()
+               self.draw_gameloop(ghost_display_update=True)
                
                if not self.clearing_animation:
                     if self.check_collision(dy=1):
@@ -1198,7 +1204,11 @@ class Tetris:
                                    self.last_fall_time = pygame.time.get_ticks()
                                    
                                    # Game end
-                                   if self.board[0][4] != 0 or self.board[0][5] != 0:
+                                   if self.check_collision(dy=0):
+                                        movement_right = False
+                                        movement_left = False
+                                        movement_bottom = False
+                                        self.draw_tetromino()
                                         self.game_over_screen()
                               
                               self.touching_ground = False
