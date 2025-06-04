@@ -475,6 +475,7 @@ class Tetris:
                11: 1
                }
           
+          self.pause_button = None
           high_scores_rect = pygame.Rect(0, 0, cfg.CELL_EDGE * 6, cfg.CELL_EDGE * 6)
           high_scores_rect.center = cfg.RESOLUTION_DISPLAY["width"] // 2, cfg.RESOLUTION_DISPLAY["height"] // 2
           high_scores_text = cfg.FONT.render("HIGH SCORES", True, cfg.WHITE)
@@ -560,6 +561,7 @@ class Tetris:
                pygame.draw.rect(cfg.PAUSE_OVERLAY.element, cfg.LIGHT_GREY, cfg.PAUSE_OVERLAY.element.get_rect(), 5)
                cfg.PAUSE_OVERLAY.element.blit(pause_text, pause_text_rect)
                
+               self.pause_button.draw(cfg.WINDOW)
                resume_button.draw(cfg.PAUSE_OVERLAY.element)
                options_button.draw(cfg.PAUSE_OVERLAY.element)
                quit_button.draw(cfg.PAUSE_OVERLAY.element)
@@ -570,14 +572,17 @@ class Tetris:
                          sys.exit()
                     elif event.type == pygame.KEYDOWN:
                          if event.key == pygame.K_ESCAPE:
+                              self.pause_button.clicked = False
                               paused = False
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                          if resume_button.is_clicked(event):
+                              self.pause_button.clicked = False
                               paused = False
                          if options_button.is_clicked(event):
                               paused = False
                               self.display_options_screen("pause screen")
                          if quit_button.is_clicked(event):
+                              self.pause_button.clicked = False
                               paused = False
                               self.main_menu()
                               self.reset_game(self.starting_level)
@@ -601,6 +606,7 @@ class Tetris:
                self.draw_frames()
                if screen == "pause screen":
                     self.draw_gameloop()
+                    self.pause_button.draw(cfg.WINDOW)
 
                cfg.OPTIONS_OVERLAY.draw(cfg.WINDOW)
                cfg.OPTIONS_OVERLAY.element.fill(cfg.BLACK)
@@ -636,6 +642,7 @@ class Tetris:
                self.draw_frames()
                if screen == "pause screen":
                     self.draw_gameloop()
+                    self.pause_button.draw(cfg.WINDOW)
                     
                pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.PLAYFIELD_FRAME.element, width=1)
                cfg.KEYBIND_OVERLAY.draw(cfg.WINDOW)
@@ -686,6 +693,7 @@ class Tetris:
                self.draw_frames()
                if screen == "pause screen":
                     self.draw_gameloop()
+                    self.pause_button.draw(cfg.WINDOW)
                
                pygame.draw.rect(cfg.WINDOW, cfg.LIGHT_GREY, cfg.PLAYFIELD_FRAME.element, width=1)
                
@@ -756,6 +764,8 @@ class Tetris:
           waiting_for_input = True
           
           while waiting_for_input:
+               if screen == "pause screen":
+                    self.pause_button.draw(cfg.WINDOW)
                cfg.KEY_MAPPING_OVERLAY.draw(cfg.WINDOW)
                cfg.KEY_MAPPING_OVERLAY.element.fill(cfg.BLACK)
                pygame.draw.rect(cfg.KEY_MAPPING_OVERLAY.element, cfg.LIGHT_GREY, cfg.KEY_MAPPING_OVERLAY.element.get_rect(), 5)
@@ -808,6 +818,8 @@ class Tetris:
                self.draw_frames()
                if screen == "pause screen":
                     self.draw_gameloop()
+                    self.pause_button.draw(cfg.WINDOW)
+               
                cfg.RESOLUTIONS_OVERLAY.draw(cfg.WINDOW)
                cfg.RESOLUTIONS_OVERLAY.element.fill(cfg.BLACK)
                pygame.draw.rect(cfg.RESOLUTIONS_OVERLAY.element, cfg.LIGHT_GREY, cfg.RESOLUTIONS_OVERLAY.element.get_rect(), 5)
@@ -844,8 +856,16 @@ class Tetris:
                     overlay.update(cfg.CELL_EDGE)
                for frame in cfg.FRAMES:
                     frame.update(cfg.CELL_EDGE)
-                    
+          
+          if screen == "pause screen":         
+               previous_pause_button = self.pause_button
+               pause_button_clicked = self.pause_button.clicked
+          else:
+               previous_pause_button = None
+               pause_button_clicked = False
           update_resolution(index)
+          self.pause_button = Button("I I", (cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), clicked=pause_button_clicked)
+          self.pause_button.center(2 * (cfg.RESOLUTION_DISPLAY["width"] - cfg.CELL_EDGE), 2 * cfg.CELL_EDGE)
                
           ok_button = Button("OK", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.GREEN, cfg.DARK_GREEN), cfg.KEEP_CHANGES_OVERLAY.rect)
           cancel_button = Button("CANCEL", (4 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.KEEP_CHANGES_OVERLAY.rect)
@@ -864,6 +884,7 @@ class Tetris:
                self.draw_frames()
                if screen == "pause screen":
                     self.draw_gameloop()
+                    self.pause_button.draw(cfg.WINDOW)
                
                cfg.KEEP_CHANGES_OVERLAY.draw(cfg.WINDOW)
                cfg.KEEP_CHANGES_OVERLAY.element.fill(cfg.BLACK)
@@ -883,6 +904,7 @@ class Tetris:
                if elapsed_time >= countdown_time:
                     keep_changes_bool = False
                     update_resolution(previous_resolution_scale_index)
+                    self.pause_button = previous_pause_button
                     self.display_resolutions_screen(screen)
                
                for event in pygame.event.get():
@@ -893,6 +915,7 @@ class Tetris:
                          if event.key == pygame.K_ESCAPE:
                               keep_changes_bool = False
                               update_resolution(previous_resolution_scale_index)
+                              self.pause_button = previous_pause_button
                               self.display_resolutions_screen(screen)
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                          if ok_button.is_clicked(event):
@@ -904,6 +927,7 @@ class Tetris:
                          elif cancel_button.is_clicked(event):
                               keep_changes_bool = False
                               update_resolution(previous_resolution_scale_index)
+                              self.pause_button = previous_pause_button
                               self.display_resolutions_screen(screen)
                pygame.display.update()
      
@@ -1074,6 +1098,8 @@ class Tetris:
           last_hard_drop_time = pygame.time.get_ticks()
           holdable = True
           self.main_menu()
+          self.pause_button = Button("I I", (cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY))
+          self.pause_button.center(2 * (cfg.RESOLUTION_DISPLAY["width"] - cfg.CELL_EDGE), 2 * cfg.CELL_EDGE)
           
           while running:
                clock.tick(60)
@@ -1112,6 +1138,7 @@ class Tetris:
                               movement_right = False
                               movement_left = False
                               movement_bottom = False
+                              self.pause_button.clicked = True
                               self.display_pause_screen()
                          
                          # Soft drop
@@ -1176,7 +1203,14 @@ class Tetris:
                          elif event.key == self.current_keys["MOVE RIGHT"]:
                               movement_right = False
                          elif event.key == self.current_keys["SOFT DROP"]:
-                              movement_bottom = False           
+                              movement_bottom = False
+                    
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                         if self.pause_button.is_clicked(event):
+                              movement_right = False
+                              movement_left = False
+                              movement_bottom = False
+                              self.display_pause_screen()           
                               
                # Update and draw
                if not self.clearing_animation:
@@ -1185,6 +1219,7 @@ class Tetris:
                     self.update_clearing_animation()
 
                self.draw_frames()
+               self.pause_button.draw(cfg.WINDOW)
                self.draw_gameloop(ghost_display_update=True)
                
                if not self.clearing_animation:
