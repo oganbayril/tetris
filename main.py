@@ -475,7 +475,8 @@ class Tetris:
                11: 1
                }
           
-          self.pause_button = None
+          self.pause_button = Button("I I", (cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY))
+          self.pause_button.center(2 * (cfg.RESOLUTION_DISPLAY["width"] - cfg.CELL_EDGE), 2 * cfg.CELL_EDGE)
           high_scores_rect = pygame.Rect(0, 0, cfg.CELL_EDGE * 6, cfg.CELL_EDGE * 6)
           high_scores_rect.center = cfg.RESOLUTION_DISPLAY["width"] // 2, cfg.RESOLUTION_DISPLAY["height"] // 2
           high_scores_text = cfg.FONT.render("HIGH SCORES", True, cfg.WHITE)
@@ -856,13 +857,9 @@ class Tetris:
                     overlay.update(cfg.CELL_EDGE)
                for frame in cfg.FRAMES:
                     frame.update(cfg.CELL_EDGE)
-          
-          if screen == "pause screen":         
-               previous_pause_button = self.pause_button
-               pause_button_clicked = self.pause_button.clicked
-          else:
-               previous_pause_button = None
-               pause_button_clicked = False
+               
+          previous_pause_button = self.pause_button
+          pause_button_clicked = self.pause_button.clicked
           update_resolution(index)
           self.pause_button = Button("I I", (cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), clicked=pause_button_clicked)
           self.pause_button.center(2 * (cfg.RESOLUTION_DISPLAY["width"] - cfg.CELL_EDGE), 2 * cfg.CELL_EDGE)
@@ -1098,8 +1095,6 @@ class Tetris:
           last_hard_drop_time = pygame.time.get_ticks()
           holdable = True
           self.main_menu()
-          self.pause_button = Button("I I", (cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY))
-          self.pause_button.center(2 * (cfg.RESOLUTION_DISPLAY["width"] - cfg.CELL_EDGE), 2 * cfg.CELL_EDGE)
           
           while running:
                clock.tick(60)
