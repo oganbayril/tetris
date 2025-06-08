@@ -113,11 +113,11 @@ HOLD_FRAME = Element(6, 6, CELL_EDGE, top="PLAYFIELD_FRAME.element.top", centerx
 SCORE_FRAME = Element(6, 12, CELL_EDGE, bottom="PLAYFIELD_FRAME.element.bottom", centerx="PLAYFIELD_FRAME.element.left // 2")
 
 PAUSE_OVERLAY = Element(6, 15, CELL_EDGE, surface=True, center="CENTER")
-OPTIONS_OVERLAY = Element(6, 15, CELL_EDGE, surface=True, center="CENTER")
+OPTIONS_OVERLAY = Element(7, 15, CELL_EDGE, surface=True, center="CENTER")
 KEY_MAPPING_OVERLAY = Element(15, 20, CELL_EDGE, surface=True, center="CENTER")
 KEYBIND_OVERLAY = Element(9, 9, CELL_EDGE, surface=True, center="CENTER")
 RESET_KEY_MAPPING_OVERLAY = Element(9, 9, CELL_EDGE, surface=True, center="CENTER")
-RESOLUTIONS_OVERLAY = Element(8, 16, CELL_EDGE, surface=True, center="CENTER")
+RESOLUTIONS_OVERLAY = Element(9, 17, CELL_EDGE, surface=True, center="CENTER")
 GAME_OVER_OVERLAY = Element(12, 12, CELL_EDGE, surface=True, center="CENTER")
 KEEP_CHANGES_OVERLAY = Element(7, 7, CELL_EDGE, surface=True, center="CENTER")
 
