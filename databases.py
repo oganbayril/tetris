@@ -1,6 +1,7 @@
 import os
 import json
 import pygame
+import copy
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 score_file = f"{script_dir}/scores.json"
@@ -25,7 +26,7 @@ if os.path.exists(options_file):
     with open(options_file, "r") as file:
         options = json.load(file)
 else:
-    options = default_options
+    options = copy.deepcopy(default_options)
     with open(options_file, "w") as file:
         json.dump(options, file, indent=4)
 
