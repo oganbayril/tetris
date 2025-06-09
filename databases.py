@@ -3,8 +3,8 @@ import json
 import pygame
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
-score_file = f"{script_dir}\scores.json"
-options_file = f"{script_dir}\options.json"
+score_file = f"{script_dir}/scores.json"
+options_file = f"{script_dir}/options.json"
 
 # Default keys and resolution scaling index
 default_options = {
