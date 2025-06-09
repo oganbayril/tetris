@@ -2,18 +2,19 @@ from pygame import Rect, draw, mouse
 from pygame.locals import MOUSEBUTTONDOWN
 
 class Button:
-    def __init__(self, text, size, font, colors, surface_rect=None, clickable=True, clicked=False):
+    def __init__(self, text, size, font, colors, surface_rect=None, clickable=True, clicked=False, text_color=(0, 0, 0)):
         self.text = text
-        self.font = font
-        self.colors = colors  # Tuple of (normal_color, hover_color)
         self.rect = Rect((0, 0), size)
+        self.font = font
+        self.colors = colors  # Tuple of (normal_color, hover_color), color of the button
         self.surface_rect = surface_rect
         self.clickable = clickable
+        self.clicked = clicked # Indicates if the button has been clicked
+        self.text_color = text_color # Color of the text
         self.render_text()
-        self.clicked = clicked
 
     def render_text(self):
-        self.text_surface = self.font.render(self.text, True, (0, 0, 0))
+        self.text_surface = self.font.render(self.text, True, self.text_color)
         text_rect = self.text_surface.get_rect(center=self.rect.center)
         self.text_position = text_rect.topleft
 
