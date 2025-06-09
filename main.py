@@ -838,7 +838,19 @@ class Tetris:
           resolutions_text_rect.top = cfg.CELL_EDGE // 2
           resolutions_text_rect.centerx = cfg.RESOLUTIONS_OVERLAY.width // 2
           
-          resolutions_list = [(cfg.BASE_WIDTH * i, cfg.BASE_HEIGHT * i) for i in cfg.RESOLUTION_SCALING_MULTIPLIERS]
+          all_resolutions = [(cfg.BASE_WIDTH * i, cfg.BASE_HEIGHT * i) for i in cfg.RESOLUTION_SCALING_MULTIPLIERS]
+          resolution_buttons_list = []
+          
+          desktop_sizes = pygame.display.get_desktop_sizes()
+          primary_resolution = desktop_sizes[0]  # Primary monitor
+          max_width, max_height = primary_resolution
+          
+          # Filter resolutions based on primary monitor size
+          resolutions_list = [
+          (width, height) for width, height in all_resolutions 
+          if width <= max_width and height <= max_height
+          ]
+          
           resolution_buttons_list = []
           
           for i, (width, height) in enumerate(resolutions_list):
@@ -846,10 +858,16 @@ class Tetris:
                     resolution_button = Button(f"{width}x{height}", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.DARK_GREY, cfg.DARK_GREY), cfg.RESOLUTIONS_OVERLAY.rect, clickable=False)
                else:
                     resolution_button = Button(f"{width}x{height}", (5 * cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), cfg.RESOLUTIONS_OVERLAY.rect)
-               resolution_button.center(cfg.RESOLUTIONS_OVERLAY.width, 2 * ((cfg.RESOLUTIONS_OVERLAY.height // (len(resolutions_list) + 1) * (i + 1) + (cfg.CELL_EDGE // 2))))
+
+               total_buttons = len(resolutions_list)
+               resolution_button.center(cfg.RESOLUTIONS_OVERLAY.width, 2 * (((cfg.RESOLUTIONS_OVERLAY.height - cfg.CELL_EDGE) // (total_buttons + 1) * (i + 1) + (cfg.CELL_EDGE // 2))))
                resolution_buttons_list.append(resolution_button)
+               
+          self.done_button.surface_rect = cfg.RESOLUTIONS_OVERLAY.rect
+          self.done_button.center(cfg.RESOLUTIONS_OVERLAY.width, 2 * (cfg.RESOLUTIONS_OVERLAY.height - cfg.CELL_EDGE))
           
           resolutions_screen_bool = True
+          
           while resolutions_screen_bool:
                self.draw_frames()
                if screen == "pause screen":
@@ -862,6 +880,7 @@ class Tetris:
                cfg.RESOLUTIONS_OVERLAY.element.blit(resolutions_text, resolutions_text_rect)
                for resolution in resolution_buttons_list:
                     resolution.draw(cfg.RESOLUTIONS_OVERLAY.element)
+               self.done_button.draw(cfg.RESOLUTIONS_OVERLAY.element)
                
                for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -872,10 +891,15 @@ class Tetris:
                               resolutions_screen_bool = False
                               self.display_options_screen(screen)
                     elif event.type == pygame.MOUSEBUTTONDOWN:
+                         if self.done_button.is_clicked(event):
+                              resolutions_screen_bool = False
+                              self.done_button.clicked = False
+                              self.display_options_screen(screen)
                          for i, resolution in enumerate(resolution_buttons_list):
                               if resolution.is_clicked(event):
                                    resolutions_screen_bool = False
                                    self.display_keep_changes_screen(i, screen)
+                         
                
                pygame.display.update()
           
@@ -894,7 +918,7 @@ class Tetris:
                     frame.update(cfg.CELL_EDGE)
                
           previous_pause_button, pause_button_clicked = self.pause_button, self.pause_button.clicked
-          previous_back_button = self.done_button
+          previous_done_button = self.done_button
           update_resolution(index)
           self.pause_button = Button("I I", (cfg.CELL_EDGE, cfg.CELL_EDGE), cfg.FONT, (cfg.LIGHT_GREY, cfg.DARK_GREY), clicked=pause_button_clicked)
           self.pause_button.center(2 * (cfg.RESOLUTION_DISPLAY["width"] - cfg.CELL_EDGE), 2 * cfg.CELL_EDGE)
@@ -937,7 +961,7 @@ class Tetris:
                if elapsed_time >= countdown_time:
                     keep_changes_bool = False
                     update_resolution(previous_resolution_scale_index)
-                    self.pause_button, self.done_button = previous_pause_button, previous_back_button
+                    self.pause_button, self.done_button = previous_pause_button, previous_done_button
                     self.display_resolutions_screen(screen)
                
                for event in pygame.event.get():
@@ -948,7 +972,7 @@ class Tetris:
                          if event.key == pygame.K_ESCAPE:
                               keep_changes_bool = False
                               update_resolution(previous_resolution_scale_index)
-                              self.pause_button, self.done_button = previous_pause_button, previous_back_button
+                              self.pause_button, self.done_button = previous_pause_button, previous_done_button
                               self.display_resolutions_screen(screen)
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                          if ok_button.is_clicked(event):
@@ -960,7 +984,7 @@ class Tetris:
                          elif cancel_button.is_clicked(event):
                               keep_changes_bool = False
                               update_resolution(previous_resolution_scale_index)
-                              self.pause_button, self.done_button = previous_pause_button, previous_back_button
+                              self.pause_button, self.done_button = previous_pause_button, previous_done_button
                               self.display_resolutions_screen(screen)
                pygame.display.update()
      
