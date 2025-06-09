@@ -107,11 +107,13 @@ class Element:
             if self.element:
                   screen.blit(self.element, self.rect)
 
+# Frames are used to display game areas: playfield, next tetromino, hold tetromino and score.
 PLAYFIELD_FRAME = Element(10, 20, CELL_EDGE, center="CENTER")
 NEXT_FRAME = Element(6, 6, CELL_EDGE, top="PLAYFIELD_FRAME.element.top", centerx="(RESOLUTION_DISPLAY['width'] + PLAYFIELD_FRAME.element.right) // 2")
 HOLD_FRAME = Element(6, 6, CELL_EDGE, top="PLAYFIELD_FRAME.element.top", centerx="PLAYFIELD_FRAME.element.left // 2")
 SCORE_FRAME = Element(6, 12, CELL_EDGE, bottom="PLAYFIELD_FRAME.element.bottom", centerx="PLAYFIELD_FRAME.element.left // 2")
 
+# Overlays are used to display menus and other UI elements.
 PAUSE_OVERLAY = Element(6, 15, CELL_EDGE, surface=True, center="CENTER")
 OPTIONS_OVERLAY = Element(7, 15, CELL_EDGE, surface=True, center="CENTER")
 KEY_MAPPING_OVERLAY = Element(15, 20, CELL_EDGE, surface=True, center="CENTER")
