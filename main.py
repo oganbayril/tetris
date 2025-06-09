@@ -747,7 +747,7 @@ class Tetris:
                               self.display_key_mapping_screen(screen)
                     elif event.type == pygame.MOUSEBUTTONDOWN:
                          if ok_button.is_clicked(event):
-                              self.options["keys"] = db.default_options["keys"].copy()
+                              self.options = db.default_options.copy()
                               self.current_keys = self.options["keys"]
                               with open(db.options_file, "w") as file:
                                    json.dump(self.options, file, indent=4)
