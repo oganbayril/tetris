@@ -85,7 +85,7 @@ Default controls (customizable in-game):
 
 ### Difficulty Levels
 - **Starting Level**: Customizable in main menu (click level button)
--**Available starting levels**: 1, 3, 5, 7, 9, 11 (cycles through when clicked)
+- **Available starting levels**: 1, 3, 5, 7, 9, 11 (cycles through when clicked)
 - **Level Progression**: Increases by 1 every 10 lines cleared during gameplay
 - **Speed Increase**: Each level reduces fall delay, making pieces drop faster
 - **Death Mode**: Reach level 15 for the ultimate challenge with maximum speed!
