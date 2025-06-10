@@ -85,9 +85,9 @@ Default controls (customizable in-game):
 
 ### Difficulty Levels
 - **Starting Level**: Customizable in main menu (click level button)
-- **Level Progression**: Increases by 1 every 10 lines cleared
+-**Available starting levels**: 1, 3, 5, 7, 9, 11 (cycles through when clicked)
+- **Level Progression**: Increases by 1 every 10 lines cleared during gameplay
 - **Speed Increase**: Each level reduces fall delay, making pieces drop faster
-- **Level Sequence**: 1 → 3 → 5 → 7 → 9 → 11 → ... 
 - **Death Mode**: Reach level 15 for the ultimate challenge with maximum speed!
 
 ### Gameplay Features
@@ -124,7 +124,7 @@ Default controls (customizable in-game):
 tetris-game/
 ├── main.py              # Main game file
 ├── databases.py         # Game settings and data
-├── button.py             # Customisable button class
+├── button.py             # Customizable button class
 ├── config.py             # Configuration file for game colors, menus, other interfaces and tetrominos
 ├── pyproject.toml       # Project configuration
 ├── uv.lock             # Dependency lock file
